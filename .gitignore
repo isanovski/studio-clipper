@@ -1,0 +1,10 @@
+# hasil render — jangan pernah masuk git
+hasil*/
+out_*/
+klip-*.mp4
+sumber.mp4
+transkrip.json
+info.json
+klip.json
+prompt-claude.md
+gambar.jpg
