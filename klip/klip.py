@@ -753,7 +753,7 @@ PRESET = {
     "sobek":   dict(font="Archivo Black", tebal=0, huruf="kapital", per=3, uk=74, warna="#FF4FA3", mode="warna", tepi=6, bayang=2,
                     judul="sobek"),
 }
-GAYA_JUDUL = ("kuning", "neon", "serif", "kotak", "sobek")  # gaya judul pembuka 3 dtk
+GAYA_JUDUL = ("kuning", "neon", "serif", "kotak", "sobek")  # gaya judul di atas (tahan sampai akhir klip)
 ANIM_DIR = Path(__file__).resolve().parent / "anim"  # hiasan animasi transparan (WebP 540×960, 30 fps) dari Remotion
 LAMA = {"sorot": "sorot", "kotak": "terbaca", "garis": "minimal"}  # gaya_sub versi lama → preset
 
@@ -781,15 +781,15 @@ def gaya_akhir(g: dict) -> dict:
     return c
 
 
-def lama_judul(c: dict) -> float:
-    return 2.5 if c.get("judul") == "sobek" else 3.0
-
-
 def baris_judul(teks: str, c: dict, panjang: float) -> str:
-    """Satu baris Dialogue ASS untuk judul pembuka sesuai gaya (animasi masuk lewat tag ASS)."""
+    """Satu baris Dialogue ASS untuk judul di atas sesuai gaya.
+
+    Animasi masuk tetap ada, tapi teksnya ditahan sampai klip habis (bukan 3 detik),
+    lalu memudar di akhir.
+    """
     t = waktu_ass
     j = c.get("judul", "kuning")
-    sl = min(lama_judul(c), panjang)
+    sl = panjang
     if j == "neon":
         uk = max(min(int(5200 / max(len(teks), 1)), 210), 120)  # boleh 2 baris
         return (f"Dialogue: 2,{t(0)},{t(sl)},JudulNeon,,0,0,0,,{{\\an5\\pos(540,840)\\frz-4\\fs{uk}\\fscx30\\fscy30"
@@ -804,9 +804,9 @@ def baris_judul(teks: str, c: dict, panjang: float) -> str:
     if j == "kotak":
         return (f"Dialogue: 2,{t(0)},{t(sl)},JudulKotak,,0,0,0,,{{\\an5\\pos(540,840)\\fscx80\\fscy80\\t(0,150,\\fscx100\\fscy100)"
                 f"\\fad(0,250)}}{teks.upper()}")
-    if j == "sobek":  # teks di atas pita kertas (anim/sobek): masuk 0,3 dtk, keluar 2,1 dtk
+    if j == "sobek":  # teks di atas pita kertas (anim/sobek): masuk 0,3 dtk, tahan sampai akhir
         uk = max(min(int(1500 / max(len(teks), 1)), 92), 48)
-        return (f"Dialogue: 2,{t(0.3)},{t(min(2.1, sl))},JudulSobek,,0,0,0,,{{\\an5\\pos(540,880)\\frz3\\fs{uk}\\fad(120,120)}}"
+        return (f"Dialogue: 2,{t(0.3)},{t(sl)},JudulSobek,,0,0,0,,{{\\an5\\pos(540,880)\\frz3\\fs{uk}\\fad(120,250)}}"
                 f"{teks.upper()}")
     return f"Dialogue: 2,{t(0)},{t(sl)},Judul,,0,0,0,,{{\\fad(150,250)}}{teks}"
 
@@ -899,7 +899,8 @@ def tulis_ass(kal: list[Kalimat], klip: Klip, out: Path, g: dict, bar_atas: int)
         f"\nStyle: JudulSerif,Georgia,104,&H00FFFFFF,&H00FFFFFF,&H00000000,&H78000000,1,0,0,0,100,100,0,0,1,0,4,5,90,90,0,1"
         f"\nStyle: JudulKotak,Archivo Black,72,&H00FFFFFF,&H00FFFFFF,&H00111111,&H00111111,0,0,0,0,100,100,0,0,3,22,0,5,100,100,0,1"
         f"\nStyle: JudulSobek,Archivo Black,84,&H00111111,&H00111111,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,120,120,0,1")
-    tanda_style = "Style: Tanda,Montserrat,30,&H33FFFFFF,&H33FFFFFF,&H00000000,&H64000000,1,0,0,0,100,100,0,0,1,1,2,3,40,40,46,1"
+    # watermark: di tengah frame, putih transparan ±50% (&H80), tanpa margin
+    tanda_style = "Style: Tanda,Montserrat,54,&H80FFFFFF,&H80FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,6,0,1,0,3,5,0,0,0,1"
     akun_style = f"Style: Akun,{font},34,&H40FFFFFF,&H40FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,1,0,1,2,0,8,80,80,{banner_v + int(uk * 1.1)},1"
     kepala = f"""[Script Info]
 ScriptType: v4.00+
@@ -1222,15 +1223,21 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         v = f"vb{i}"
         n_in += 1
 
-    def hiasan(nama: str, mulai: float, tahan: float = 0.0) -> None:
-        """Tempel animasi transparan anim/<nama>/NN.webp mulai detik `mulai` (frame terakhir ditahan `tahan` dtk)."""
+    def hiasan(nama: str, mulai: float, tahan: float = 0.0, beku: int | None = None) -> None:
+        """Tempel animasi transparan anim/<nama>/NN.webp mulai detik `mulai`.
+
+        `tahan` = berapa detik frame terakhir ditahan setelah animasi selesai.
+        `beku` = pakai frame ke-`beku` sebagai frame terakhir (animasi yang ujungnya
+        "keluar" layar, mis. pita sobek, jadi bisa ditahan saat pitanya masih penuh).
+        """
         nonlocal v, n_in
         if not (ANIM_DIR / nama / "00.webp").exists():
             return
         masukan_extra.extend(["-framerate", "30", "-start_number", "0", "-i", str(ANIM_DIR / nama / "%02d.webp")])
+        potong = f",trim=end_frame={beku},setpts=PTS-STARTPTS" if beku else ""
         tpad = f",tpad=stop_mode=clone:stop_duration={tahan:.2f}" if tahan > 0 else ""
         tunda = f",tpad=start_duration={mulai:.3f}:start_mode=add:color=black@0" if mulai > 0 else ""
-        graf.append(f"[{n_in}:v]format=rgba,scale=1080:1920{tpad}{tunda},setpts=PTS-STARTPTS[an{n_in}]")
+        graf.append(f"[{n_in}:v]format=rgba,scale=1080:1920{potong}{tpad}{tunda},setpts=PTS-STARTPTS[an{n_in}]")
         graf.append(f"[{v}][an{n_in}]overlay=eof_action=pass[va{n_in}]")
         v = f"va{n_in}"
         n_in += 1
@@ -1251,9 +1258,10 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
     # hiasan judul pembuka: coretan neon / pita kertas sobek
     if klip.judul and g.get("judul_buka", True) and not (g.get("banner", True) and klip.judul):
         if c.get("judul") == "neon":
-            hiasan("neon", 0.0, tahan=max(lama_judul(c) - 1.5, 0))
+            hiasan("neon", 0.0, tahan=max(durasi - 1.0, 0))   # coretan ikut sampai akhir
         elif c.get("judul") == "sobek":
-            hiasan("sobek", 0.0)
+            # frame 40 = pita sudah penuh; frame terakhir animasi justru pitanya keluar layar
+            hiasan("sobek", 0.0, tahan=max(durasi - 1.0, 0), beku=40)
     # emoji otomatis (gambar Twemoji) di atas baris subtitle
     if c.get("emoji") and g.get("subtitle", True):
         rencana = rencana_emoji(kal, klip, c["per"])
@@ -1517,7 +1525,7 @@ def main() -> None:
     p.add_argument("--uji-ai", help="uji sambungan AI (lokal/gemini/openai/claude-code/codex/opencode)")
     p.add_argument("--broll", choices=["pixabay", "file"], help="sisipkan B-roll: pixabay (butuh PIXABAY_API_KEY) atau file sendiri")
     p.add_argument("--broll-file", nargs="*", default=[], help="video/foto milikmu untuk B-roll (dengan --broll file)")
-    p.add_argument("--watermark", help="teks kecil di pojok kanan bawah, mis. @akunmu")
+    p.add_argument("--watermark", help="teks di tengah klip, putih transparan ±50%%, mis. @akunmu")
     p.add_argument("--gaya", help="JSON gaya render (rasio, latar, fokus, layout, banner, subtitle, musik, …)")
     a = p.parse_args()
 

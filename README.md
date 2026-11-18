@@ -1,8 +1,8 @@
 # isanovski Studio
 
 Potong video panjang jadi klip 9:16 (subtitle karaoke, bingkai ikut wajah), dan bikin motion graphic 9:16
-dari satu topik. Semua diproses di mesin sendiri: tanpa watermark, tanpa kuota, tidak ada yang diunggah ke
-server orang lain.
+dari satu topik. Semua diproses di mesin sendiri: tanpa kuota, tidak ada yang diunggah ke server orang
+lain, dan watermark-nya milikmu sendiri (bisa dihapus sekali isi).
 
 Fork pribadi dari [studio-maliki](https://github.com/malikisaputra-source/studio-maliki).
 Kredit + lisensi di bagian paling bawah.
@@ -94,6 +94,26 @@ hasil kerja ──► hasil/     ·   motion/hasil/
   dependensi tambahan — Python 3 bawaan sudah cukup.
 - **`klip.py` dan `buat.mjs` bisa dipakai langsung** tanpa menu (lihat [Perintah manual](#perintah-manual)).
 - **Tidak ada database, tidak ada cloud.** Hasil ada di folder `hasil/`, kunci AI di `klip/.env`.
+
+### Yang ditempel di klip
+
+| Elemen | Bawaannya | Cara mengubah |
+|---|---|---|
+| Subtitle karaoke | aktif, kata yang diucapkan menyala | menu → jumlah/durasi, atau `--gaya '{"subtitle":false}'` |
+| Judul di atas | aktif, **tampil dari awal sampai klip habis** lalu memudar | `--gaya '{"judul_buka":false}'` untuk mematikan |
+| Watermark tengah | `isanovski Studio`, putih transparan ±50%, pas di tengah | `--watermark "namamu"`, atau `--watermark ""` untuk tanpa watermark |
+| Progress bar | aktif di dasar frame | `--gaya '{"progres":false}'` |
+
+Di `./mulai` ada satu pertanyaan tambahan:
+
+```
+  Watermark tengah ('-' = tanpa) [isanovski Studio]:
+```
+
+Enter = pakai bawaan, ketik `-` = tanpa watermark, atau ketik teks lain. Di web UI, kolom **Watermark
+tengah** ada di panel gaya (kosongkan kalau tidak mau).
+
+> Kalau banner atas aktif, judul di atas digantikan banner — jadi teks judul tidak dobel.
 
 ## Isi repo
 
@@ -227,6 +247,7 @@ Kalau tidak mau pakai menu:
 | Tujuan | Perintah |
 |---|---|
 | analisis + render | `uv run klip/klip.py "v.mp4" --jumlah 3 --durasi 30 --keluar hasil-x` |
+| ganti watermark | `... --watermark "@akunmu"` (kosongkan `""` = tanpa watermark) |
 | pakai Gemini | `... --ai gemini` |
 | analisis saja | `uv run klip/klip.py "v.mp4" --hanya-analisis --keluar hasil-x` |
 | render ulang pilihan | `uv run klip/klip.py --keluar hasil-x --render --pilih 1,3` |

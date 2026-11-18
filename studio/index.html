@@ -719,7 +719,7 @@ input[type=range]{accent-color:var(--aksen)}
     <!-- KLIP -->
     <section class="halaman aktif" id="h-beranda">
       <div class="kepala"><div><div class="eyebrow">isanovski studio · semua jalan di laptopmu</div><h1>Mau bikin apa <span>hari ini?</span></h1>
-        <p>Potong video panjang jadi klip, atau ubah satu topik jadi video animasi. Gratis, tanpa watermark.</p></div></div>
+        <p>Potong video panjang jadi klip, atau ubah satu topik jadi video animasi. Gratis, watermark milikmu sendiri.</p></div></div>
       <div class="bento">
         <div class="kartu b-aksi" data-buka="klip" style="--w:#f5a524">
           <div class="b-kepala"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg><h2>Potong video jadi klip</h2></div><p>Tempel link YouTube atau seret video. AI memilih momen terbaik, lalu render 9:16 dengan subtitle.</p><span class="panah">buka klip →</span></div>
@@ -733,7 +733,7 @@ input[type=range]{accent-color:var(--aksen)}
     </section>
 
     <section class="halaman" id="h-klip">
-      <div class="kepala"><div><div class="eyebrow">auto clipper · jalan di laptopmu</div><h1>Potong video panjang <span>jadi klip siap viral</span></h1><p>Tempel link YouTube atau seret file video. Semua diproses di laptopmu, tanpa watermark.</p></div></div>
+      <div class="kepala"><div><div class="eyebrow">auto clipper · jalan di laptopmu</div><h1>Potong video panjang <span>jadi klip siap viral</span></h1><p>Tempel link YouTube atau seret file video. Semua diproses di laptopmu, watermark milikmu sendiri.</p></div></div>
       <div class="sumber-ringkas" id="sumberRingkas" hidden><span class="sr-label">Sumber</span><b id="srJudul"></b>
         <button class="tombol kedua kecil" id="srBaru">Analisis video lain</button></div>
       <div class="zona" id="zonaBesar">
@@ -813,10 +813,10 @@ input[type=range]{accent-color:var(--aksen)}
               <label class="saklar">Zoom singkat di kata kunci<input type="checkbox" id="gZoom"></label>
               <label class="saklar">Progress bar di bawah<input type="checkbox" id="gProgres"></label>
               <label class="saklar">Emoji otomatis di atas subtitle<input type="checkbox" id="gEmoji" checked></label>
-              <label class="saklar">Judul pembuka 3 detik <em style="font-style:normal;color:var(--redup);font-size:12px">&nbsp;saat banner mati</em><input type="checkbox" id="gJudulBuka" checked></label>
-              <div class="bidang"><label>Gaya judul pembuka</label><div class="pil" id="pJudul" style="flex-wrap:wrap"><button data-v="kuning" class="aktif">Kotak kuning</button><button data-v="neon">Hook neon</button><button data-v="serif">Serif elegan</button><button data-v="kotak">Kotak hitam</button><button data-v="sobek">Kertas sobek</button></div></div>
+              <label class="saklar">Judul di atas (tampil sampai akhir klip) <em style="font-style:normal;color:var(--redup);font-size:12px">&nbsp;dipakai saat banner mati</em><input type="checkbox" id="gJudulBuka" checked></label>
+              <div class="bidang"><label>Gaya judul di atas</label><div class="pil" id="pJudul" style="flex-wrap:wrap"><button data-v="kuning" class="aktif">Kotak kuning</button><button data-v="neon">Hook neon</button><button data-v="serif">Serif elegan</button><button data-v="kotak">Kotak hitam</button><button data-v="sobek">Kertas sobek</button></div></div>
               <label class="saklar">Transisi sapuan saat B-roll masuk/keluar<input type="checkbox" id="gTransisi"></label>
-              <div class="bidang" style="margin:10px 0 0"><label>Watermark pojok kanan bawah <em>opsional, mis. @akunmu</em></label><input class="input" id="gWatermark" maxlength="40"></div>
+              <div class="bidang" style="margin:10px 0 0"><label>Watermark tengah <em>putih transparan 50%, kosongkan kalau tidak mau</em></label><input class="input" id="gWatermark" maxlength="40" placeholder="isanovski Studio"></div>
               <div class="bidang" style="margin:10px 0 0"><label>Nama akun di bawah judul <em>opsional, mis. @akunmu</em></label><input class="input" id="gAkun" maxlength="40"></div>
             </div>
 
@@ -1585,7 +1585,7 @@ const PRESET_G = {
 };
 const G = {rasio: '9:16', latar: 'hitam', fokus: 'auto', layout: 'tunggal', banner: true, awalan: '', akhiran: '', subtitle: true,
   preset: 'sorot', font: 'Archivo Black', ukuran: 'sedang', huruf: 'kapital', posisi_y: 72, warna: '#FFD400', zoom: true, progres: true, akun: '',
-  musik: '', volume_musik: 18, sfx: '', suara: 100, emoji: true, judul_buka: true, gaya_judul: 'kuning', transisi: false, watermark: '', broll: '', broll_file: []};
+  musik: '', volume_musik: 18, sfx: '', suara: 100, emoji: true, judul_buka: true, gaya_judul: 'kuning', transisi: false, watermark: 'isanovski Studio', broll: '', broll_file: []};
 function pilihPreset(id) {
   const p = PRESET_G[id]; if (!p) return;
   Object.assign(G, {preset: id, font: p.font, huruf: p.huruf, warna: p.warna, ukuran: 'sedang', zoom: p.zoom ?? true, progres: p.progres ?? true, gaya_judul: p.judul || 'kuning'});

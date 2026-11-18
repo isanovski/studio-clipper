@@ -396,6 +396,8 @@ def alur_klip(kering: bool = False) -> None:
         ai = "lokal"
     print()
     arahan = tanya("Cari momen tertentu? (kosong = bebas)", "")
+    print()
+    wm = tanya("Watermark tengah ('-' = tanpa)", "isanovski Studio")
 
     if sumber.startswith("http"):
         slug = "youtube"
@@ -416,6 +418,8 @@ def alur_klip(kering: bool = False) -> None:
            "--keluar", str(tujuan), "--ai", ai]
     if arahan:
         cmd += ["--arahan", arahan]
+    if wm and wm != "-":
+        cmd += ["--watermark", wm]
     kode = jalan(cmd, label="menganalisis & merender", kering=kering)
     if kode != 0:
         print()
