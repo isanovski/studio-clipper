@@ -1537,7 +1537,7 @@ def main() -> None:
     p.add_argument("sumber", nargs="?", help="file video atau link YouTube")
     p.add_argument("--jumlah", type=int, default=3, help="jumlah klip (default 3)")
     p.add_argument("--durasi", type=int, default=30, help="target detik per klip (default 30)")
-    p.add_argument("--model", default="medium", help="model whisper: tiny/base/small/medium/large-v3")
+    p.add_argument("--model", default="small", help="model whisper: tiny/base/small/medium/large-v3")
     p.add_argument("--bahasa", default="id", help="kode bahasa, mis. id atau en; 'auto' = deteksi otomatis (default id)")
     p.add_argument("--keluar", default="hasil-klip", help="folder hasil")
     p.add_argument("--tanpa-wajah", action="store_true", help="bingkai tengah, jangan ikuti wajah")

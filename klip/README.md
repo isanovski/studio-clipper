@@ -24,7 +24,7 @@ atau langsung dari YouTube:
 ```bash
 uv run klip.py "https://www.youtube.com/watch?v=XXXX" --jumlah 3 --durasi 30
 ```
-Saat pertama kali jalan, alat ini mengunduh paket dan model Whisper `medium` (±1,5 GB). Jalan berikutnya jauh lebih cepat.
+Saat pertama kali jalan, alat ini mengunduh paket dan model Whisper `small` (±464 MB). Jalan berikutnya jauh lebih cepat.
 Hasilnya ada di folder `hasil-klip/`: `klip-01.mp4`, `klip-02.mp4`, … dan `klip.json` (berisi skor dan alasan tiap klip).
 
 Cara alat memilih momen: heatmap "Most replayed" YouTube (kalau ada), energi suara, kepadatan kata, kata hook
@@ -47,7 +47,9 @@ Pengguna Claude Pro + Claude Code cukup mengetik: *"jalankan klip.py untuk video
 |---|---|
 | `--jumlah 5` | jumlah klip |
 | `--durasi 45` | target detik per klip |
-| `--model medium` | transkrip lebih akurat tapi lebih lambat (`tiny`, `base`, `small`, `medium`, `large-v3`) |
+| `--model small` | default, ringan (±464 MB, ±790 RAM) |
+| `--model medium` | lebih akurat tapi lebih lambat (±1,5 GB, ±2 GB RAM) |
+| `--model tiny/base/large-v3` | pilihan lain sesuai kebutuhan |
 | `--bahasa id` | paksa bahasa transkrip |
 | `--warna "#00E5FF"` | warna sorotan subtitle |
 | `--tanpa-wajah` | bingkai di tengah, tidak mengikuti wajah |

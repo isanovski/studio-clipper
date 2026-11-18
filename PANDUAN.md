@@ -145,7 +145,7 @@ uv run klip/klip.py -h
 | `sumber` | File video atau link YouTube | `video.mp4` |
 | `--jumlah N` | Banyaknya klip | `--jumlah 5` |
 | `--durasi N` | Target detik per klip | `--durasi 45` |
-| `--model` | Model Whisper: `tiny`, `base`, `small`, `medium`, `large-v3` | `--model medium` (default sekarang) |
+| `--model` | Model Whisper: `tiny`, `base`, `small`, `medium`, `large-v3` | `--model small` (default) |
 | `--bahasa` | Kode bahasa: `id`, `en`, atau `auto` | `--bahasa id` |
 | `--keluar` | Folder hasil | `--keluar hasil-x` |
 | `--ai` | Pemilih momen: `lokal`, `gemini`, `openai`, `claude-code`, `codex`, `opencode` | `--ai gemini` |
@@ -159,6 +159,11 @@ uv run klip/klip.py -h
 | `--facecam FILE` | File video kamera untuk mode gamer (pakai dengan `--layout gamer`) | `--facecam kamera.mp4` |
 | `--tanpa-subtitle` | Klip tanpa subtitle | `--tanpa-subtitle` |
 | `--uji-ai` | Cek sambungan AI | `--uji-ai gemini` |
+
+---
+
+> **Model `small` masih cukup akurat untuk Bahasa Indonesia lisan.**  
+> Dengan initial prompt berisi kata santai ("nggak", "gimana", "banget", "sih", dll.) dan `condition_on_previous_text=False`, hasil transkrip sudah layak pakai untuk klip pendek. Kalau masih terlalu banyak salah tangkap kata, naikkan ke `--model medium` (tapi RAM akan lebih besar dan waktu lebih lama).
 
 ---
 
@@ -343,7 +348,7 @@ gh codespace cp remote:/workspaces/studio-clipper/hasil/klip-01.mp4 .
 | Codespace tidur | ±30 menit idle → render ikut mati. Pakai `tmux`: `tmux new -s klip`, lalu `tmux attach -t klip` |
 | File hilang | Semua hilang kalau codespace dihapus. Unduh hasilnya dulu. |
 | Disk | Terbatas ~32 GB. Hapus `hasil` dan video sumber yang nggak dipakai. Cek: `df -h .` |
-| RAM | 3 GB. `whisper medium` ±1,5–2 GB + Remotion ±1,5–2 GB → jangan jalan bareng-bareng. |
+| RAM | 3 GB. `whisper small` ±790 MB + Remotion ±1,5–2 GB → jangan jalan bareng-bareng. |
 
 ---
 
@@ -354,7 +359,7 @@ gh codespace cp remote:/workspaces/studio-clipper/hasil/klip-01.mp4 .
 | `permission denied: ./mulai` | `chmod +x mulai` atau `python3 mulai` |
 | `kunci AI: belum ada` | Isi lewat menu `./mulai` → 3, atau cek `uv run klip/klip.py --uji-ai gemini` |
 | YouTube unduhan gagal | Unduh manual di laptop, seret file ke Codespace |
-| Render macet / RAM habis | Pakai `--model small` alih-alih `medium`; jangan jalankan Remotion bareng |
+| Render macet / RAM habis | Pakai `--model tiny` atau `--model base`; jangan jalankan Remotion bareng |
 | `Sign in to confirm you're not a bot` | YouTube blok IP. Pakai file lokal, bukan link YouTube |
 | Hasil tidak muncul | Cek folder `hasil/`, atau `./mulai --hasil hasil/<nama>` |
 | `uv` tidak ditemukan | Jalankan `TANPA_WEB=1 bash pasang-cloud.sh` dulu |
