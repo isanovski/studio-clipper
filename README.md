@@ -234,9 +234,9 @@ gh codespace cp remote:/workspaces/studio-clipper/hasil/klip-01.mp4 .
 
 | Hal | Kenyataan |
 |---|---|
-| Berat render | whisper `small` ≈ **0,2–0,4× realtime** di 2 vCPU; encode 1080×1920 ≈ **0,5× realtime** |
-| RAM | whisper `small` puncak **±790 MB**; Remotion ±1,5–2 GB → jangan bersamaan |
-| Run pertama | unduh model whisper `small` ±464 MB |
+| Berat render | whisper `medium` ≈ **0,1–0,2× realtime** di 2 vCPU; encode 1080×1920 ≈ **0,5× realtime** |
+| RAM | whisper `medium` puncak **±1,5–2 GB**; Remotion ±1,5–2 GB → **jangan bersamaan** |
+| Run pertama | unduh model whisper `medium` ±1,5 GB |
 | Satu pekerjaan | satu render dalam satu waktu (`studio.py` menolak job kedua) |
 | Video 60 menit | transkripsi bisa **2,5–5 jam** di mesin 2 core |
 

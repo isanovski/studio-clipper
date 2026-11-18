@@ -24,7 +24,7 @@ atau langsung dari YouTube:
 ```bash
 uv run klip.py "https://www.youtube.com/watch?v=XXXX" --jumlah 3 --durasi 30
 ```
-Saat pertama kali jalan, alat ini mengunduh paket dan model Whisper `small` (±500 MB). Jalan berikutnya jauh lebih cepat.
+Saat pertama kali jalan, alat ini mengunduh paket dan model Whisper `medium` (±1,5 GB). Jalan berikutnya jauh lebih cepat.
 Hasilnya ada di folder `hasil-klip/`: `klip-01.mp4`, `klip-02.mp4`, … dan `klip.json` (berisi skor dan alasan tiap klip).
 
 Cara alat memilih momen: heatmap "Most replayed" YouTube (kalau ada), energi suara, kepadatan kata, kata hook

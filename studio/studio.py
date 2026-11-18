@@ -391,7 +391,7 @@ def mulai_klip(d: dict) -> dict:
     folder = proyek_baru("klip")
     cmd = [*jalankan_skrip(KLIP / "klip.py"), sumber, "--keluar", str(folder),
            "--jumlah", str(int(d.get("jumlah", 3))), "--durasi", str(int(d.get("durasi", 30))),
-           "--ai", penyedia_ai(d.get("ai")), "--model", d.get("model", "small"),
+           "--ai", penyedia_ai(d.get("ai")), "--model", d.get("model", "medium"),
            "--warna", d.get("warna", "#FFB020")]
     cmd.append("--hanya-analisis")
     if d.get("arahan"):
