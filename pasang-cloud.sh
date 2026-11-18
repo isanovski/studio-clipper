@@ -18,9 +18,9 @@ PORT_APP="${STUDIO_PORT:-8787}"
 DATA="${STUDIO_DATA:-$HOME/Studio Maliki}"
 
 echo ""
-echo "  ┌────────────────────────────────────┐"
-echo "  │ isanovski Studio — pasang di VM Linux │"
-echo "  └────────────────────────────────────┘"
+echo "  ┌────────────────────────────────────────┐"
+echo "  │ isanovski Studio — pasang di VM Linux  │"
+echo "  └────────────────────────────────────────┘"
 echo ""
 
 # 1) uv — pengelola Python resmi Astral
@@ -75,7 +75,7 @@ if [ "${LEWATI_KLIP:-0}" != "1" ]; then
   echo "• Menyiapkan Klip (yt-dlp, faster-whisper, opencv — ±1,5 GB, sabar)…"
   uv sync -q --script "$AKAR/klip/klip.py"
 fi
-if command -v node >/dev/null 2>&1; then
+if [ "${TANPA_NODE:-0}" != "1" ] && command -v node >/dev/null 2>&1; then
   echo "• Menyiapkan Motion (Remotion — ±400 MB)…"
   ( cd "$AKAR/motion" && npm install --no-audit --no-fund --silent )
 fi

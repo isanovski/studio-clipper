@@ -1,223 +1,149 @@
-# isanovski Studio — Klip + Motion
+# isanovski Studio
 
-Fork pribadi dari [studio-maliki](https://github.com/malikisaputra-source/studio-maliki), dipakai untuk
-memotong video panjang jadi klip 9:16 dan bikin motion graphic dari satu topik. Semua diproses di
-laptop sendiri: tanpa watermark, tanpa kuota, video tidak diunggah ke mana pun.
+Potong video panjang jadi klip 9:16 (subtitle karaoke, bingkai ikut wajah), dan bikin motion graphic 9:16
+dari satu topik. Semua diproses di mesin sendiri: tanpa watermark, tanpa kuota, tidak ada yang diunggah ke
+server orang lain.
 
-Repo ini **bukan** proyek publik — ini catatan pemakaian untuk mesin ini, biar nggak perlu ngulik ulang
-dari nol tiap kali buka.
-
----
-
-## Status mesin ini
-
-| | |
-|---|---|
-| Repo | `/home/kage/studio-clipper` (branch `main`) |
-| Remote | `origin` → `git@github.com:isanovski/studio-clipper` (via https) |
-| OS | Ubuntu 24.04 |
-| Python | 3.12.3 (wajib ≥3.10,<3.13) — dijalankan lewat `uv` 0.13.9 |
-| Node | v26.13.1 (khusus Motion/Remotion) |
-| Data + kunci AI | `~/Studio Maliki/` |
-| Folder ini di GitHub | publik (fork) — **ada kredit pembuat asli, jangan dihapus** |
+Fork pribadi dari [studio-maliki](https://github.com/malikisaputra-source/studio-maliki).
+Kredit + lisensi di bagian paling bawah — wajib dibaca sebelum dibagikan.
 
 ---
 
-## Mulai cepat
+## Cara kerja
 
-```bash
-isanovski-studio            # nyalakan + buka tab browser (lokal saja)
-isanovski-studio mobile     # nyalakan, bisa dibuka dari HP di Wi-Fi yang sama
-isanovski-studio status     # cek jalan atau tidak
-isanovski-studio stop       # matikan
+```
+browser / HP
+     │  http://…:8787
+     ▼
+studio/studio.py ──── server lokal + seluruh UI (HTML/CSS/JS dalam satu file)
+     │
+     ├──► klip/klip.py ───── yt-dlp ─► faster-whisper ─► ffmpeg
+     │                        (unduh)   (transkrip)      (potong 9:16 + subtitle + bingkai wajah)
+     │
+     └──► motion/buat.mjs ── naskah JSON ─► suara (TTS) ─► Remotion/Chromium ─► MP4
+
+hasil kerja ──► ~/Studio Maliki/
 ```
 
-Alamat:
+Intinya:
 
-- di laptop → `http://127.0.0.1:8787`
-- di HP → `http://192.168.0.107:8787` (IP bisa berubah kalau pindah jaringan; script mencetak ulang)
+- **`studio.py` itu remote control.** Ia menyajikan UI, menerima perintah (JSON), menjalankan skrip di atas
+  sebagai proses anak, lalu mengirim progres ke browser. Satu pekerjaan berat dalam satu waktu.
+- **`klip.py` dan `buat.mjs` bisa dipakai tanpa UI** — keduanya CLI biasa.
+- **Tidak ada database, tidak ada cloud.** Satu folder data: proyek, hasil render, dan kunci AI
+  (`pengaturan.env`). Tidak ada yang dikirim ke mana pun selain ke penyedia AI yang kamu pilih.
 
-Kalau `isanovski-studio` tidak ketemu: `export PATH="$HOME/.local/bin:$PATH"` (biasanya sudah ada di
-`~/.bashrc`). File aslinya di `~/.local/bin/studio-maliki-kontrol`; `isanovski-studio` dan
-`studio-maliki` cuma pintasan ke situ.
+## Isi repo
 
-Bisa juga dari menu aplikasi: cari **isanovski Studio**.
+| Folder / file | Isi |
+|---|---|
+| `studio/` | `studio.py` (server + API) dan `index.html` (seluruh UI: CSS + JS inline) |
+| `klip/` | `klip.py` — video panjang → klip pendek. Panduan: `klip/README.md` |
+| `motion/` | `buat.mjs` — naskah → video animasi (Remotion). Panduan: `motion/README.md` |
+| `suara/` | `suara.py` — teks → WAV (VoxCPM2, opsional) |
+| `pasang-cloud.sh` | pemasang untuk VM Linux tanpa layar (Codespaces / Cloud Shell) |
+| `pemasang/` | pembuat installer macOS/Windows (tidak dipakai di Linux) |
+| `LISENSI.md` | syarat pemakaian |
 
-Tanpa launcher:
+## Jalan di laptop (Linux)
 
 ```bash
-cd ~/studio-clipper
-uv run studio/studio.py            # jendela aplikasi sendiri (WebKit/GTK)
+bash pasang-cloud.sh          # sekali saja: pasang uv, Node, dependensi, lalu nyalakan
+```
+
+Setelah itu, sehari-hari cukup (launcher ada di `~/.local/bin/isanovski-studio`):
+
+```bash
+isanovski-studio              # nyalakan + buka browser (lokal saja)
+isanovski-studio mobile       # nyalakan, bisa dibuka dari HP di Wi-Fi yang sama
+isanovski-studio stop         # matikan
+```
+
+Alamat: `http://127.0.0.1:8787`. Manual tanpa launcher:
+
+```bash
+uv run studio/studio.py            # jendela aplikasi sendiri
 uv run studio/studio.py --browser  # buka di browser
 ```
 
----
+## Jalan di GitHub Codespaces
 
-## Yang beda dari versi asli
+Cocok kalau mau akses dari HP tanpa menyalakan laptop. Mesinnya milik GitHub, jadi **render tetap berat**
+(tidak lebih cepat dari laptop) — ini soal "bisa diakses dari mana saja", bukan soal kecepatan.
 
-1. **Merek** → `isanovski Studio`, ikon monogram "is" (`studio/aset/ikon-is.svg` + `.png`).
-2. **Tema Ink/Ember** → gelap hangat + amber, terang krem; judul Instrument Serif, teks DM Sans.
-3. **Responsif** → di ≤760px sidebar jadi tab bar bawah, konten 1 kolom, wizard layar penuh,
-   input 16px, target sentuh ≥44px, aman dari notch (`env(safe-area-inset-*)`).
-4. **Anti-cache** → server mengirim `Cache-Control: no-store` untuk html/css/js/gambar.
-5. **Mode LAN** → `STUDIO_HOST=0.0.0.0` (opt-in, bawaan tetap `127.0.0.1`).
-6. **`pasang-cloud.sh`** → pemasang untuk VM tanpa layar (Codespaces / Cloud Shell).
+1. Buka repo ini di GitHub → tombol **Code** → tab **Codespaces** → **Create codespace on main**.
+2. Tunggu sampai terminal muncul di bawah (container siap).
+3. Jalankan pemasang:
 
-Kredit pembuat asli tetap ada di tiga tempat: footer sidebar, footer versi HP, dan komentar header
-`studio/index.html` + `studio/studio.py`. Itu syarat lisensi, bukan hiasan.
+   ```bash
+   bash pasang-cloud.sh
+   ```
 
----
+   Butuh **5–10 menit** dan sekitar **2 GB** (whisper, opencv, Remotion). Kalau hanya mau UI-nya dulu:
 
-## Kalau mau ubah tampilan
+   ```bash
+   LEWATI_KLIP=1 bash pasang-cloud.sh   # hemat ~1,5 GB, menu Klip belum bisa render
+   TANPA_NODE=1 bash pasang-cloud.sh    # tanpa Node, menu Motion tidak bisa render
+   ```
 
-Semua di `studio/index.html` (satu file, CSS + JS inline):
+4. Buka tab **PORTS** (di panel bawah) → cari baris port **8787** → klik **Open in Browser**.
+   Kalau perlu dari HP, klik kanan baris port itu → **Port Visibility** → **Public**, lalu buka URL
+   `https://…-8787.app.github.dev` di HP.
+5. Selesai. Hasil kerja ada di `~/Studio Maliki/` **di dalam codespace**.
 
-| Mau ubah | Cari |
-|---|---|
-| Warna aksen | `--aksen` di blok `:root` (gelap) dan `:root[data-tema="terang"]` |
-| Font judul | `--serif` (default Instrument Serif) |
-| Nama/merek | `class="merek"`, `<title>`, dan teks di `.wiz-kepala` |
-| Aturan HP | blok `@media (max-width:760px)` di akhir `<style>` |
-| Ikon | `studio/aset/ikon-is.svg`, `.png`, plus favicon di `<head>` |
-
-Setelah edit, tidak perlu restart server — cukup **Ctrl+Shift+R** di browser. Kalau tetap terlihat lama,
-berarti browser-nya masih pegang cache: tutup tab, buka lagi.
-
-Untuk cek tampilan tanpa browser manual (Playwright sudah terpasang di `~/.cache/ms-playwright`):
+Kalau codespace dihentikan atau di-restart, jalankan lagi:
 
 ```bash
-cd /tmp/opencode && uv run --with playwright --python 3.12 python cek-mobile.py
+bash pasang-cloud.sh
 ```
 
----
+`studio.py` sudah menangani header `Origin` dari domain proxy Codespaces, jadi tombol-tombol di UI tidak
+kena 403 (sudah diuji: Origin sama dengan Host → lolos, Origin situs lain → 403).
 
-## Pakai di HP
+> Alur pemasangan di atas diuji di Linux lokal — bukan di Codespace sungguhan. Kalau ada langkah yang gagal,
+> tempel 20 baris terakhir `~/Studio Maliki/studio.log` supaya kelihatan penyebabnya.
+
+Cek cepat setelah start:
+
+```bash
+curl -s http://127.0.0.1:8787/ | grep -o "<title>[^<]*</title>"   # → <title>isanovski Studio</title>
+```
+
+### Yang perlu diingat soal Codespaces
+
+- **Link YouTube hampir pasti gagal** dari IP GitHub (YouTube menolak IP datacenter). Untuk video YouTube,
+  unduh di laptop lalu **unggah filenya** ke UI.
+- Codespace **tidur sendiri** setelah ±30 menit tanpa aktivitas → server mati. Nyalakan lagi seperti di atas.
+- Semua file **hilang** kalau codespace dihapus. Unduh hasil render sebelum menghapus.
+- Kuota gratis akun pribadi ±120 core-hour/bulan. Render panjang memakai CPU penuh, jadi hitung-hitung.
+
+## Pakai di HP (dari laptop sendiri, tanpa Codespaces)
 
 ```bash
 isanovski-studio mobile
 ```
 
-Lalu buka `http://<IP-laptop>:8787` di HP, Wi-Fi yang sama. Bisa **Add to Home Screen** — sudah ada
-`theme-color` + `apple-mobile-web-app-capable`, jadi tampil tanpa address bar.
+Buka `http://<IP-laptop>:8787` di HP, Wi-Fi yang sama (IP dicetak saat start). Sudah ada
+`theme-color` + `apple-mobile-web-app-capable`, jadi bisa **Add to Home Screen**.
 
-Yang perlu diingat:
+Di layar ≤760px: sidebar jadi tab bar bawah, konten satu kolom, wizard layar penuh, target sentuh ≥44px.
 
-- Video tetap diproses **di laptop**; HP cuma jadi layar dan remot. Laptop harus nyala.
-- Mode `mobile` membuka port ke seluruh jaringan lokal. Siapa pun di Wi-Fi yang sama bisa mengendalikan
-  app selama jalan → **matikan kalau di Wi-Fi kafe/kantor/kampus**.
-- Upload video besar dari HP lewat Wi-Fi lambat; untuk video panjang mending dari laptop.
+⚠️ Mode `mobile` membuka port ke seluruh jaringan lokal — matikan kalau di Wi-Fi publik.
 
----
+## Batasan yang sudah terbukti
 
-## Di mana hasil kerja
-
-| Isi | Lokasi |
+| Hal | Kenyataan |
 |---|---|
-| Proyek, hasil render, riwayat | `~/Studio Maliki/` |
-| Kunci AI & pengaturan | `~/Studio Maliki/pengaturan.env` (chmod 600) |
-| Log server | `~/Studio Maliki/studio.log` |
-| Model TTS lokal (kalau dipasang) | `~/Studio Maliki/.mesin/` |
+| Berat render | whisper `small` ≈ **0,2–0,4× realtime** di 2 vCPU; encode 1080×1920 ≈ **0,5× realtime** |
+| RAM | whisper `small` puncak **±790 MB**; Remotion ±1,5–2 GB → jangan dijalankan bersamaan |
+| Video 60 menit | transkripsi bisa **2,5–5 jam** di mesin 2 core |
+| YouTube dari cloud | diblokir; pakai upload file |
+| Satu pekerjaan | `studio.py` menolak job kedua selama job pertama jalan |
 
-Nama foldernya sengaja tetap "Studio Maliki" supaya proyek dan kunci lama tidak hilang. Jangan pernah
-commit isi folder ini — `.gitignore` sudah menutup `hasil*/`, `out_*/`, `*.mp4`, `transkrip.json`, dst.
-
----
-
-## AI
-
-Kunci disimpan lokal, tidak dikirim ke mana pun selain penyedianya. Pilihan di **Pengaturan AI**:
-
-- **Lokal** — tanpa kunci, gratis, kualitas paling sederhana.
-- **Gemini** — kunci gratis dari [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-- **Ollama** — gratis, offline, jalan di laptop (butuh RAM).
-- **Langganan** — Claude Code (`claude -p`), Codex (`codex exec`), atau OpenCode (`opencode run`).
-  Langganan chat **bukan** API key; ini memanggil CLI resminya, jadi butuh CLI-nya sudah login.
-
-Suara narator Motion: suara bawaan OS, atau **VoxCPM2** (lokal, ±5 GB, 30 bahasa). Kalau belum perlu,
-pakai suara bawaan dulu — VoxCPM2 tanpa GPU NVIDIA di Linux akan lambat.
-
----
-
-## Kalau YouTube gagal diunduh
-
-Dari IP datacenter (Codespaces, Cloud Shell, VPS) YouTube sering menolak. Itu batasan YouTube, bukan bug
-app. `klip/klip.py` **belum** punya opsi `--cookies`; solusinya jalankan di laptop (IP rumahan) atau
-serahkan file video langsung ke app (tombol pilih file).
-
----
-
-## Sinkron dengan versi asli
-
-```bash
-cd ~/studio-clipper
-git remote add upstream https://github.com/malikisaputra-source/studio-maliki.git   # sekali saja
-git fetch upstream
-git merge upstream/main
-```
-
-Konflik hampir pasti muncul di `studio/index.html` (kita mengubah merek + tema) dan `studio/studio.py`.
-Aturan aman: **ambil fitur barunya, pertahankan merek dan tema kita**. Kalau ragu, `git checkout --theirs`
-lalu tempel ulang blok tema; jangan sekadar "resolve" sampai kredit Maliki hilang.
-
-Push perubahan sendiri:
-
-```bash
-git add -A && git commit -m "..." && git push origin main
-```
-
-Repo ini publik, jadi jangan pernah commit `pengaturan.env`, kunci API, atau hasil render berisi data
-pribadi.
-
----
-
-## Perintah CLI tanpa UI
-
-```bash
-# Klip: link/file → klip 9:16 (analisis lalu render)
-uv run klip/klip.py -h
-uv run klip/klip.py "link-atau-file.mp4" --jumlah 3 --durasi 30 --keluar hasil-klip
-
-# Motion: naskah JSON → video (gaya bisa ditimpa)
-node motion/buat.mjs naskah/contoh.json --gaya=neon
-
-# Suara saja
-uv run suara/suara.py --teks "Halo" --keluar halo.wav
-```
-
-Detail: [`klip/README.md`](klip/README.md), [`motion/README.md`](motion/README.md).
-
----
-
-## Masalah yang sudah pernah kena
-
-| Gejala | Sebab & solusi |
-|---|---|
-| UI tidak berubah setelah edit | Cache browser → sekarang server kirim `no-store`; tutup tab / Ctrl+Shift+R |
-| `isanovski-studio` diam saja | Dulu: server sudah jalan, script cuma diam. Sekarang selalu buka tab baru |
-| HP tidak bisa buka | Laptop mode lokal (`127.0.0.1`) → pakai `isanovski-studio mobile`, dan cek firewall |
-| `uv run` minta Python beda | `studio.py` pakai PEP 723, butuh ≥3.10,<3.13. Jangan paksa Python 3.13 |
-| Motion gagal render | Node belum ada / versi terlalu tua. Cek `node -v`, lalu `cd motion && npm install` |
-| Port 8787 dipakai | `STUDIO_PORT=8788 isanovski-studio` |
-
----
-
-## Lisensi (wajib dibaca kalau mau dibagikan)
+## Lisensi
 
 Template oleh **Maliki Saputra** ([@malikisaputra](https://github.com/malikisaputra)) — https://malikisaputra.biz.id.
 
-**Lisensi Nonkomersial Maliki Studio 1.0**: boleh dipakai untuk belajar, keperluan pribadi, atau usaha
-sendiri; boleh diubah dan dibagikan gratis **dengan kredit utuh**; **dilarang dijual, dijual ulang,
-disewakan, diunggah ke marketplace, atau dipakai untuk jasa berbayar ke pihak lain**.
-
-Teks lengkap: [`LISENSI.md`](LISENSI.md). Pustaka pihak ketiga (Remotion, faster-whisper, VoxCPM2, font
-OFL, dll.) tetap ikut lisensinya masing-masing.
-
-Mau versi yang benar-benar bebas merek? Hubungi pembuat aslinya: [@malikisaputra](https://github.com/malikisaputra).
-
----
-
-## Belum dikerjakan
-
-- PWA beneran (manifest + service worker → install & shell offline).
-- Rombak tata letak desktop: top bar, beranda ala editor, mode fokus, atau split view ala CapCut.
-- `--cookies` untuk `klip/klip.py` (biar YouTube jalan dari IP datacenter).
+**Lisensi Nonkomersial Maliki Studio 1.0**: boleh dipakai untuk belajar, pribadi, atau usaha sendiri; boleh
+diubah dan dibagikan gratis **dengan kredit utuh**; **dilarang dijual, dijual ulang, disewakan, atau dipakai
+untuk jasa berbayar ke pihak lain**. Teks lengkap: [`LISENSI.md`](LISENSI.md).
