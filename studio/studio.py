@@ -55,6 +55,8 @@ if os.environ.get("STUDIO_PY"):
 DATA = Path(os.environ.get("STUDIO_DATA", Path.home() / "Studio Maliki"))
 ENV = DATA / "pengaturan.env"
 PORT = int(os.environ.get("STUDIO_PORT", "8787"))
+# HOST=0.0.0.0 → bisa dibuka dari HP di Wi-Fi yang sama (opt-in, bawaan tetap lokal saja)
+HOST = os.environ.get("STUDIO_HOST", "127.0.0.1")
 KUNCI = ["SUARA", "VOXCPM_MODE", "VOXCPM_DESAIN", "AI", "LANGGANAN", "OPENCODE_MODEL", "CLAUDE_CODE_MODEL", "CODEX_MODEL", "GEMINI_API_KEY", "GEMINI_MODEL",
          "OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL", "SUARA_MAC", "TEMA", "PIXABAY_API_KEY"]
 BAWAAN = {"SUARA": "bawaan", "VOXCPM_MODE": "bawaan", "AI": "lokal", "LANGGANAN": "claude-code", "GEMINI_MODEL": "gemini-3.8-flash",
@@ -582,6 +584,9 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Type", tipe)
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(akhir - mulai + 1))
+        if p.suffix.lower() in (".html", ".css", ".js", ".svg", ".png"):
+            # jangan pernah simpan di cache browser: perubahan tampilan langsung terlihat
+            self.send_header("Cache-Control", "no-store, max-age=0")
         self.end_headers()
         with open(p, "rb") as fh:
             fh.seek(mulai)
@@ -595,9 +600,17 @@ class H(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(n) or b"{}")
 
     def _asal_aman(self) -> bool:
-        # tolak permintaan dari situs lain (CSRF) — hanya halaman Studio sendiri
+        # tolak permintaan dari situs lain (CSRF) — hanya halaman Studio sendiri.
+        # Di belakang proxy port-forwarding (GitHub Codespaces, Cloud Shell, Firebase Studio)
+        # Origin berisi domain publik sedangkan request masuk lewat 127.0.0.1, jadi Origin
+        # juga dianggap sah kalau host-nya sama dengan header Host yang dipakai proxy.
         asal = self.headers.get("Origin")
-        return asal is None or asal in (f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}")
+        if asal is None:
+            return True
+        if asal.rstrip("/") in (f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}"):
+            return True
+        inang = (self.headers.get("Host") or "").strip().lower()
+        return bool(inang) and urlparse(asal).netloc.lower() == inang
 
     def do_GET(self):
         u = urlparse(self.path)
@@ -780,7 +793,7 @@ def main():
             PORT, sudah = p, True
             break
         try:
-            srv = ServerStudio(("127.0.0.1", p), H)
+            srv = ServerStudio((HOST, p), H)
             PORT = p
             break
         except OSError:
@@ -790,7 +803,14 @@ def main():
         if srv is None:
             raise SystemExit("Tidak ada port kosong di 8787–8806. Tutup aplikasi lain lalu buka Studio lagi.")
         threading.Thread(target=srv.serve_forever, daemon=True).start()
-        print(f"Studio Maliki jalan di {url}")
+        print(f"isanovski Studio jalan di {url}")
+        if HOST not in ("127.0.0.1", "localhost"):
+            import socket as _s
+            try:
+                ip = _s.gethostbyname(_s.gethostname())
+            except OSError:
+                ip = "IP-laptopmu"
+            print(f"  Dari HP (Wi-Fi sama): http://{ip}:{PORT}")
     if "--tanpa-buka" in sys.argv:
         try:
             while True:
@@ -820,12 +840,12 @@ def main():
             return str(tujuan)
 
     if sys.platform == "darwin":
-        # Nama & ikon di menu bar/Dock: "Studio Maliki", bukan "python"
+        # Nama & ikon di menu bar/Dock: "isanovski Studio", bukan "python"
         try:
             from AppKit import NSApplication, NSImage
             from Foundation import NSBundle
             info = NSBundle.mainBundle().localizedInfoDictionary() or NSBundle.mainBundle().infoDictionary()
-            info["CFBundleName"] = "Studio Maliki"
+            info["CFBundleName"] = "isanovski Studio"
         except Exception:  # noqa: BLE001
             pass
 
@@ -842,7 +862,7 @@ def main():
             pass
 
     webview.settings["ALLOW_DOWNLOADS"] = True
-    webview.create_window("Studio Maliki", url, width=1360, height=880, min_size=(900, 640),
+    webview.create_window("isanovski Studio", url, width=1360, height=880, min_size=(900, 640),
                           background_color="#07090F", js_api=Jembatan())
     webview.start(setelah_mulai)
     KERJA.batal()

@@ -3,12 +3,17 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Studio Maliki</title>
-<link rel="icon" href="/aset/ikon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0908" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#faf7f1" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>isanovski Studio</title>
+<link rel="icon" type="image/svg+xml" href="/aset/ikon-is.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <!-- font dimuat tanpa menahan tampilan: sinyal lemah/offline → langsung tampil dengan font cadangan -->
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <meta name="color-scheme" content="dark light">
 <script>
 // Tema: otomatis (ikut sistem) / gelap / terang — dipasang sebelum CSS supaya tidak berkedip
@@ -25,10 +30,10 @@
   --bg:#07090f; --panel:#111725; --panel2:#151c2c; --garis:#1f2738; --garis2:#2b3550;
   --teks:#eef1f7; --redup:#a3acc1; --redup2:#8590aa;
   --biru:#3b82f6; --oranye:#f59e0b; --hijau:#10b981; --ungu:#a855f7; --merah:#ef4444;
-  --aksen:#22d3ee; --aksen2:#818cf8;
+  --aksen:#f5a524; --aksen2:#ff7a45;
   --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace; --sans:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
   --r:18px; --ease:cubic-bezier(.2,.8,.2,1);
-  --pada-aksen:#031418; --cahaya:#22d3ee; --kaca:rgba(7,9,15,.6); --tirai:#02030899; --bayang:#000;
+  --pada-aksen:#031418; --cahaya:#f5a524; --kaca:rgba(7,9,15,.6); --tirai:#02030899; --bayang:#000;
   color-scheme:dark;
 }
 /* Tema terang (riset dok 31: palet dihitung ≥4.5:1). Area media (video, kanvas pratinjau, galeri gaya) tetap gelap. */
@@ -41,7 +46,7 @@
 }
 *{box-sizing:border-box} html,body{margin:0;height:100%} [hidden]{display:none!important}
 body{background:var(--bg);color:var(--teks);font-family:var(--sans);font-size:14px;
-  background-image:radial-gradient(1px 1px at 12% 18%,#ffffff55,transparent),radial-gradient(1px 1px at 72% 8%,#ffffff40,transparent),radial-gradient(1.5px 1.5px at 38% 62%,#ffffff35,transparent),radial-gradient(1px 1px at 88% 44%,#ffffff45,transparent),radial-gradient(1px 1px at 22% 86%,#ffffff30,transparent),radial-gradient(1px 1px at 58% 32%,#ffffff30,transparent),radial-gradient(1.5px 1.5px at 94% 82%,#ffffff35,transparent),radial-gradient(60vw 40vw at 85% -10%,#22d3ee12,transparent 70%),radial-gradient(50vw 40vw at -10% 100%,#818cf810,transparent 70%);
+  background-image:radial-gradient(1px 1px at 12% 18%,#ffffff55,transparent),radial-gradient(1px 1px at 72% 8%,#ffffff40,transparent),radial-gradient(1.5px 1.5px at 38% 62%,#ffffff35,transparent),radial-gradient(1px 1px at 88% 44%,#ffffff45,transparent),radial-gradient(1px 1px at 22% 86%,#ffffff30,transparent),radial-gradient(1px 1px at 58% 32%,#ffffff30,transparent),radial-gradient(1.5px 1.5px at 94% 82%,#ffffff35,transparent),radial-gradient(60vw 40vw at 85% -10%,#f5a52412,transparent 70%),radial-gradient(50vw 40vw at -10% 100%,#ff7a4510,transparent 70%);
   background-size:520px 520px,520px 520px,520px 520px,520px 520px,520px 520px,520px 520px,520px 520px,auto,auto;background-attachment:fixed}
 ::selection{background:rgba(34,211,238,.32);color:var(--teks)}
 :root[data-tema="terang"] body{background-image:radial-gradient(60vw 40vw at 85% -10%,#0e749012,transparent 70%),radial-gradient(50vw 40vw at -10% 100%,#4f46e510,transparent 70%);background-size:auto}
@@ -132,7 +137,7 @@ details summary{cursor:pointer;color:var(--redup);font-size:12.5px;margin-top:10
 .stat b{color:var(--teks)}
 .linimasa{position:relative;height:64px;border-radius:12px;background:var(--panel);border:1px solid var(--garis);overflow:hidden;margin-bottom:16px}
 .linimasa svg{position:absolute;inset:0;width:100%;height:100%}
-.linimasa .rentang{position:absolute;top:0;bottom:0;background:#22d3ee22;border-left:2px solid var(--aksen);border-right:2px solid var(--aksen)}
+.linimasa .rentang{position:absolute;top:0;bottom:0;background:#f5a52422;border-left:2px solid var(--aksen);border-right:2px solid var(--aksen)}
 .linimasa .rentang span{position:absolute;top:4px;left:4px;font-family:var(--mono);font-size:12px;color:var(--aksen)}
 .alat-bar{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
 .kartu-klip{display:grid;grid-template-columns:200px 1fr;gap:18px;padding:14px;margin-bottom:12px}
@@ -228,9 +233,9 @@ textarea.input{min-height:110px;resize:vertical;line-height:1.5}
 .baris-status b{font-weight:500}
 /* dropzone (pola riset: upload drag drop) */
 .zona{border:1.5px dashed var(--garis2);border-radius:22px;padding:22px;background:linear-gradient(180deg,#ffffff06,transparent);transition:border-color .2s,background .3s}
-.zona.seret{border-color:var(--aksen);background:#22d3ee10}
+.zona.seret{border-color:var(--aksen);background:#f5a52410}
 .zona .atas{display:flex;align-items:center;gap:16px;margin-bottom:16px;color:var(--redup)}
-.zona .atas .bulat{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;background:#22d3ee14;color:var(--aksen);flex:none}
+.zona .atas .bulat{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;background:#f5a52414;color:var(--aksen);flex:none}
 .zona .atas b{color:var(--teks);display:block;font-size:16px;font-weight:600}
 /* sambutan pertama (pola riset: onboarding desktop app) */
 .tirai{position:fixed;inset:0;background:var(--tirai);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:20;animation:muncul .4s var(--ease)}
@@ -243,7 +248,7 @@ textarea.input{min-height:110px;resize:vertical;line-height:1.5}
 .sambut li span{color:var(--redup);font-size:13.5px;line-height:1.5}
 .sambut li b{display:block;color:var(--teks);font-weight:600;margin-bottom:2px}
 /* panel kaca: border gradasi tipis (pola riset: glassmorphism dark) */
-.kartu{background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(160deg,#ffffff1a,#ffffff05 40%,#22d3ee14) border-box;border:1px solid transparent}
+.kartu{background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(160deg,#ffffff1a,#ffffff05 40%,#f5a52414) border-box;border:1px solid transparent}
 @media (max-width:1100px){.bento{grid-template-columns:1fr}.b-aksi,.b-status,.b-terbaru,.b-tips,.b-angka{grid-column:auto}.mini-proyek{grid-template-columns:repeat(2,1fr)}}
 /* dropdown model (pengganti datalist yang menyaring pilihan) */
 select.input{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:40px;
@@ -418,7 +423,7 @@ select.input option{background:var(--panel);color:var(--teks)}
   filter:blur(28px);opacity:0;transition:opacity .9s var(--expo)}
 .halaman.aktif::before{opacity:1;animation:napas 7s ease-in-out infinite}
 @keyframes napas{50%{transform:translateX(-50%) scale(1.08);opacity:.7}}
-#h-klip{--warna-hal:#22d3ee}#h-motion{--warna-hal:#818cf8}#h-riwayat{--warna-hal:#10b981}#h-pengaturan{--warna-hal:#a855f7}
+#h-klip{--warna-hal:#f5a524}#h-motion{--warna-hal:#ff7a45}#h-riwayat{--warna-hal:#10b981}#h-pengaturan{--warna-hal:#a855f7}
 /* busur tipis di atas judul */
 .kepala{position:relative}
 .kepala::after{content:"";position:absolute;left:-36px;right:-36px;top:-28px;height:1px;pointer-events:none;
@@ -461,12 +466,236 @@ main{position:relative;z-index:1}
   .tombol:active,.pil button:active,.tile:active,.preset:active,.gaya:active,.pny:active{transform:none}
 }
 @media (max-width:900px){.grid2,.penyedia,.langkah{grid-template-columns:1fr}.kartu-klip,.video-besar{grid-template-columns:1fr}main{padding:18px 16px}}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TEMA "ISANOVSKI STUDIO" — lapisan tampilan pribadi
+   Hanya menimpa token warna, tipografi, dan permukaan. Struktur & alur
+   kerja tidak diubah, jadi semua fungsi tetap sama.
+   Palet: tinta hangat (obsidian) + amber/ember, aksen serif editorial.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#0a0908; --panel:#141110; --panel2:#1c1815; --garis:#2b2420; --garis2:#3f352d;
+  --teks:#f6f1e9; --redup:#b7aa9b; --redup2:#8f8274;
+  --biru:#7cb8ff; --oranye:#f5a524; --hijau:#84c46b; --ungu:#c39bf5; --merah:#ef6a5f;
+  --aksen:#f5a524; --aksen2:#ff7a45;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --sans:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:16px;
+  --pada-aksen:#1a1206; --cahaya:#f5a524; --kaca:rgba(10,9,8,.74); --bayang:#000;
+  color-scheme:dark;
+}
+:root[data-tema="terang"]{
+  --bg:#faf7f1; --panel:#fffdf8; --panel2:#f3ece0; --garis:#e6dbc9; --garis2:#cfc0a8;
+  --teks:#1b1510; --redup:#5d5347; --redup2:#7a6d5d;
+  --aksen:#b45309; --aksen2:#c2410c; --hijau:#3f7d2f; --merah:#b3392c; --oranye:#92400e;
+  --biru:#1d4ed8; --ungu:#6d28d9;
+  --pada-aksen:#fffdf8; --kaca:rgba(255,253,248,.84); --bayang:rgba(27,21,16,.16);
+  color-scheme:light;
+}
+/* permukaan: butir hangat + cahaya sudut, bukan taburan bintang */
+body{
+  background-image:
+    radial-gradient(68vw 44vw at 88% -14%,#f5a52416,transparent 68%),
+    radial-gradient(56vw 46vw at -10% 108%,#ff7a4512,transparent 70%),
+    repeating-linear-gradient(118deg,#ffffff04 0 1px,transparent 1px 7px);
+  background-size:auto,auto,auto;background-attachment:fixed;
+}
+:root[data-tema="terang"] body{
+  background-image:
+    radial-gradient(68vw 44vw at 88% -14%,#b4530916,transparent 68%),
+    radial-gradient(56vw 46vw at -10% 108%,#c2410c10,transparent 70%),
+    repeating-linear-gradient(118deg,#1b151004 0 1px,transparent 1px 7px);
+  background-size:auto,auto,auto;
+}
+::selection{background:rgba(245,165,36,.30);color:var(--teks)}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:var(--garis2);border-radius:99px;border:3px solid transparent;background-clip:padding-box}
+*::-webkit-scrollbar-thumb:hover{background:var(--redup2);background-clip:padding-box}
+*::-webkit-scrollbar-track{background:transparent}
+/* tipografi: judul serif, isi sans, label mono */
+body{font-family:var(--sans);letter-spacing:.004em}
+.kepala h1{font-family:var(--serif);font-weight:400;font-size:48px;line-height:1.02;letter-spacing:-.012em}
+.kepala h1>span:not(.kata-gerak){color:var(--aksen2);font-style:italic}
+.kepala p{font-size:15px}
+.wiz-kepala h2,.wiz-isi h3{font-family:var(--serif);font-weight:400;letter-spacing:0}
+.wiz-isi h3{font-size:26px}
+.wiz-kepala .lambang{width:46px;height:46px;font-size:25px;border-radius:13px}
+/* merek: monogram is */
+.merek{padding:2px 8px 20px}
+.merek .lambang{
+  width:36px;height:36px;border-radius:11px;flex:none;display:grid;place-items:center;
+  font-family:var(--serif);font-size:20px;line-height:1;color:#20160a;
+  background:linear-gradient(140deg,var(--aksen),var(--aksen2));
+  box-shadow:0 8px 22px -10px rgba(245,165,36,.85),inset 0 1px 0 #ffffff55;
+}
+.merek b{font-family:var(--serif);font-size:20px;font-weight:400;letter-spacing:.1px}
+.merek b em{font-style:italic;color:var(--aksen)}
+.merek div>span{letter-spacing:.22em;font-size:11px;text-transform:uppercase;color:var(--redup2)}
+/* sidebar & navigasi */
+.sisi{background:linear-gradient(180deg,var(--panel)cc,transparent 55%),var(--kaca)}
+.nav{border-radius:11px}
+.nav.aktif{background:linear-gradient(90deg,rgba(245,165,36,.14),transparent 85%),var(--panel);box-shadow:inset 2px 0 0 var(--aksen);color:var(--teks)}
+.nav.aktif svg{color:var(--aksen)}
+.label-kecil{margin-top:6px}
+/* kartu: garis luar tipis menghangat di sudut */
+.kartu{
+  background:linear-gradient(var(--panel),var(--panel)) padding-box,
+             linear-gradient(158deg,#ffffff1f,#ffffff04 42%,#f5a52426) border-box;
+  box-shadow:0 1px 0 #ffffff08 inset,0 24px 60px -46px var(--bayang);
+}
+.kartu:hover{border-color:transparent}
+.kartu h2.judul-kartu i{box-shadow:0 0 0 3px rgba(245,165,36,.14)}
+/* tombol */
+.utama{background:linear-gradient(135deg,var(--aksen),var(--aksen2));color:var(--pada-aksen);font-weight:700}
+.utama:hover{box-shadow:0 14px 34px -12px rgba(245,165,36,.7)}
+.kedua:hover{border-color:var(--aksen);color:var(--aksen)}
+.pil button.aktif{background:linear-gradient(135deg,var(--aksen),var(--aksen2));border-color:transparent;color:var(--pada-aksen)}
+.input,.sumber{background:var(--bg)}
+.input:focus{border-color:var(--aksen);box-shadow:0 0 0 3px rgba(245,165,36,.14)}
+.sumber:focus-within{border-color:var(--aksen);box-shadow:0 0 0 3px rgba(245,165,36,.12)}
+.sumber.seret{background:#2a1c0c;border-color:var(--aksen)}
+input[type=range]{accent-color:var(--aksen)}
+/* lini masa & zona unggah */
+.linimasa .rentang{background:rgba(245,165,36,.16)}
+.zona.seret{border-color:var(--aksen);background:rgba(245,165,36,.08)}
+.zona .atas .bulat{background:rgba(245,165,36,.12);color:var(--aksen)}
+/* kredit lisensi: tetap ada, dibuat kalem */
+.kredit{font-size:11.5px;color:var(--redup2);opacity:.85;border-top:1px solid var(--garis);padding-top:10px;margin-top:10px}
+.kredit b{color:var(--redup)}
+.kredit a{color:inherit;text-decoration:none;border-bottom:1px dotted var(--garis2)}
+/* sisa aksen dingin → hangat */
+.kursor-cahaya{background:radial-gradient(circle,rgba(245,165,36,.09),rgba(255,122,69,.04) 40%,transparent 68%)}
+.kartu::after,.pny::after,.gaya::after,.preset::after,.item::after{
+  background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%),rgba(245,165,36,.10),transparent 45%)}
+.mini .gb{background-color:var(--panel2)}
+/* tema terang: paksa aksen kartu aksi ikut palet hangat */
+:root[data-tema="terang"] .b-aksi[data-buka="klip"]{--w:#b45309!important}
+:root[data-tema="terang"] .b-aksi[data-buka="motion"]{--w:#c2410c!important}
+.b-aksi h2{font-family:var(--serif);font-weight:400;font-size:31px;letter-spacing:-.01em}
+.b-kepala h2{font-family:var(--serif);font-weight:400}
+
+.kaki-kredit{display:none}
+@media (max-width:1100px){
+  .kaki-kredit{display:block;text-align:center;font-size:11px;line-height:1.6;color:var(--redup2);
+    border-top:1px solid var(--garis);margin-top:24px;padding:16px 8px 4px}
+  .kaki-kredit a{color:var(--redup);text-decoration:none;border-bottom:1px dotted var(--garis2)}
+}
+/* ═══════════════════════════════════════════════════════════════════════
+   MOBILE — ≤760px
+   Sidebar jadi bilah tab bawah (jempol), konten satu kolom, wizard layar
+   penuh. Semua target sentuh ≥44px dan input 16px supaya iOS tidak zoom.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width:760px){
+  html{-webkit-text-size-adjust:100%}
+  body{background-attachment:scroll}
+  /* HP: dokumen yang menggulir (bukan main), biar address bar & momentum natural */
+  html,body{height:auto}
+  .app{display:block;height:auto;min-height:100vh;min-height:100dvh}
+  main{overflow:visible;height:auto;padding-bottom:calc(94px + env(safe-area-inset-bottom))}
+
+  /* bilah bawah */
+  .sisi{
+    position:fixed;left:0;right:0;bottom:0;z-index:60;height:auto;
+    flex-direction:row;align-items:stretch;gap:2px;
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+    border-right:0;border-top:1px solid var(--garis);
+    background:var(--panel);backdrop-filter:blur(22px) saturate(1.2);
+    box-shadow:0 -12px 34px -20px #000;
+  }
+  .merek,.label-kecil,.sisi .bawah,#tblTema,#tblMatikan,.kredit{display:none!important}
+  .nav{
+    flex:1 1 0;min-width:0;min-height:52px;flex-direction:column;justify-content:center;gap:4px;
+    padding:6px 2px;border-radius:12px;font-size:10px;font-weight:600;letter-spacing:0;
+    text-align:center;white-space:nowrap;overflow:hidden;touch-action:manipulation;
+  }
+  .nav svg{width:20px;height:20px}
+  .nav:hover{transform:none;background:transparent;color:var(--redup)}
+  .nav.aktif{
+    background:linear-gradient(180deg,rgba(245,165,36,.18),rgba(245,165,36,.02));
+    box-shadow:none;color:var(--aksen);
+  }
+  .nav.aktif svg{color:var(--aksen)}
+
+  /* konten */
+  main{padding:calc(18px + env(safe-area-inset-top)) 14px calc(94px + env(safe-area-inset-bottom))}
+  .halaman{max-width:100%}
+  .kepala{margin-bottom:16px;flex-wrap:wrap}
+  .kepala h1{font-size:34px;line-height:1.05}
+  .kepala p{font-size:14px}
+  .eyebrow{font-size:11px;letter-spacing:.04em;gap:7px}
+  .kartu{padding:16px;border-radius:14px}
+  .grid2,.penyedia,.bento,.mini-proyek,.komp,.video-besar,.kartu-klip{grid-template-columns:1fr}
+  .bento{gap:12px}
+  .b-aksi{min-height:160px}
+  .b-aksi h2{font-size:25px}
+  .b-aksi::before{width:240px;height:240px}
+  .b-angka>div>b{font-size:34px}
+  .mini-proyek{grid-template-columns:repeat(2,1fr)}
+  .kartu-klip video,.video-besar video{width:100%;max-width:260px}
+
+  /* form & tombol: nyaman disentuh */
+  .input,.sumber .input{font-size:16px}
+  .input{min-height:46px}
+  .tombol{min-height:46px;padding:0 20px;font-size:15px}
+  .kedua.kecil,.kecil{min-height:40px}
+  .sumber{flex-wrap:wrap;border-radius:16px;padding:8px;gap:8px}
+  .sumber .input{flex:1 1 100%;min-height:40px;padding:4px 6px}
+  .sumber .tombol{flex:1 1 100%}
+  .pil button{flex:1 1 40%;min-height:44px;line-height:44px;font-size:13px}
+  label,.bidang label{font-size:13px}
+  .bidang{margin-bottom:16px}
+  .saklar{min-height:48px;padding:10px 0}
+
+  /* langkah render & lini masa */
+  .langkah{grid-template-columns:repeat(2,1fr);gap:6px}
+  .lk{padding:8px 10px;font-size:11.5px}
+  .linimasa{height:52px}
+  .zona .atas .bulat{width:44px;height:44px;border-radius:14px}
+
+  /* wizard layar penuh */
+  .tirai{z-index:70;padding:0;background:var(--panel);backdrop-filter:none}
+  .wiz{width:100vw;max-width:100vw;height:100dvh;max-height:none;border-radius:0;border:0}
+  .wiz-kepala{padding:14px;gap:10px;flex-wrap:wrap}
+  .wiz-kepala h2{font-size:18px}
+  .wiz-kepala small{font-size:12px}
+  .wiz-kepala .lambang{width:38px;height:38px;font-size:21px;border-radius:11px}
+  .wiz-langkah{width:100%;flex-wrap:wrap;gap:5px;margin-left:0}
+  .wiz-langkah span{font-size:10.5px;padding:4px 8px}
+  .wiz-isi{padding:16px;-webkit-overflow-scrolling:touch}
+  .wiz-isi h3{font-size:22px}
+  .tabel-syarat{font-size:12.5px}
+  .tabel-syarat th,.tabel-syarat td{padding:8px 6px}
+  .tabel-syarat th:last-child,.tabel-syarat td:last-child{white-space:nowrap}
+  .komp{padding:12px}
+  .wiz-kaki{padding:12px 14px calc(12px + env(safe-area-inset-bottom));flex-wrap:wrap;gap:8px}
+  .wiz-kaki .tombol{flex:1 1 auto}
+
+  /* lapisan */
+  .toast{bottom:calc(78px + env(safe-area-inset-bottom));left:14px;right:14px;transform:translateY(20px);text-align:center;border-radius:14px;font-size:13px}
+  .toast.tampil{transform:none}
+  .kursor-cahaya{display:none}
+}
+/* layar sangat kecil */
+@media (max-width:400px){
+  .nav{font-size:9px}
+  .kepala h1{font-size:29px}
+  .mini-proyek{grid-template-columns:1fr}
+  .langkah{grid-template-columns:1fr}
+  .pil button{flex:1 1 100%}
+}
+/* layar lebar tapi pendek (HP landscape) */
+@media (max-width:900px) and (orientation:landscape){
+  .sisi{flex-direction:row}
+  main{padding-bottom:86px}
+  .kepala h1{font-size:30px}
+}
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="sisi">
-    <div class="merek"><img src="/aset/ikon.png" alt=""><div><b>Maliki <em>Studio</em></b><span>klip · motion</span></div></div>
+    <div class="merek"><span class="lambang">is</span><div><b>isanovski <em>Studio</em></b><span>klip · motion</span></div></div>
     <button class="nav aktif" data-ke="beranda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="10" rx="2"/><rect x="13" y="3" width="8" height="6" rx="2"/><rect x="13" y="11" width="8" height="10" rx="2"/><rect x="3" y="15" width="8" height="6" rx="2"/></svg>Beranda</button>
     <button class="nav" data-ke="klip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg>Klip</button>
     <button class="nav" data-ke="motion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m10 8 6 4-6 4z"/></svg>Motion</button>
@@ -483,18 +712,18 @@ main{position:relative;z-index:1}
     </div>
     <button class="nav" id="tblTema" title="Ganti tampilan (otomatis / gelap / terang)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/></svg><span id="ketTema">Tampilan: otomatis</span></button>
     <button class="nav" id="tblMatikan" style="margin-top:8px;font-size:13px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>Matikan Studio</button>
-    <div class="kredit" title="Lisensi Nonkomersial Maliki Studio 1.0: gratis untuk belajar, pribadi, atau usaha sendiri; dilarang dijual ulang atau dipakai untuk jasa berbayar">Template oleh <b>Maliki Saputra</b><br>gratis · nonkomersial · dilarang dijual</div>
+    <div class="kredit" title="Lisensi Nonkomersial Maliki Studio 1.0: gratis untuk belajar, pribadi, atau usaha sendiri; dilarang dijual ulang atau dipakai untuk jasa berbayar">Template oleh <a href="https://malikisaputra.biz.id" target="_blank" rel="noopener"><b>Maliki Saputra</b></a><br>nonkomersial · dilarang dijual</div>
   </aside>
 
   <main>
     <!-- KLIP -->
     <section class="halaman aktif" id="h-beranda">
-      <div class="kepala"><div><div class="eyebrow">studio maliki · semua jalan di laptopmu</div><h1>Mau bikin apa <span>hari ini?</span></h1>
+      <div class="kepala"><div><div class="eyebrow">isanovski studio · semua jalan di laptopmu</div><h1>Mau bikin apa <span>hari ini?</span></h1>
         <p>Potong video panjang jadi klip, atau ubah satu topik jadi video animasi. Gratis, tanpa watermark.</p></div></div>
       <div class="bento">
-        <div class="kartu b-aksi" data-buka="klip" style="--w:#22d3ee">
+        <div class="kartu b-aksi" data-buka="klip" style="--w:#f5a524">
           <div class="b-kepala"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg><h2>Potong video jadi klip</h2></div><p>Tempel link YouTube atau seret video. AI memilih momen terbaik, lalu render 9:16 dengan subtitle.</p><span class="panah">buka klip →</span></div>
-        <div class="kartu b-aksi" data-buka="motion" style="--w:#818cf8">
+        <div class="kartu b-aksi" data-buka="motion" style="--w:#ff7a45">
           <div class="b-kepala"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m10 8 6 4-6 4z"/></svg><h2>Topik jadi video animasi</h2></div><p>Naskah per adegan, suara narator, 24 gaya template, render MP4 1080×1920.</p><span class="panah">buka motion →</span></div>
         <div class="kartu b-terbaru"><h2 class="judul-kartu"><i></i>proyek terakhir</h2><div class="mini-proyek" id="miniProyek"></div></div>
         <div class="kartu b-status"><h2 class="judul-kartu"><i style="background:var(--hijau)"></i>status</h2><div id="statusBeranda"></div></div>
@@ -758,11 +987,12 @@ main{position:relative;z-index:1}
       <div class="kartu" style="margin-top:16px"><h2 class="judul-kartu"><i style="background:var(--hijau)"></i>Cek sistem</h2>
         <div class="aksi" style="margin:0 0 12px"><button class="tombol kedua kecil" id="bukaWizard">Buka wizard pemasangan</button></div><div id="cekSistem" class="ringkas" style="margin:0"></div></div>
     </section>
+    <footer class="kaki-kredit">Template oleh <a href="https://malikisaputra.biz.id" target="_blank" rel="noopener">Maliki Saputra</a> · lisensi nonkomersial · dilarang dijual</footer>
   </main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="tirai" id="wizard" hidden><div class="wiz">
-  <div class="wiz-kepala"><img src="/aset/ikon.png" alt=""><div><h2>Pemasangan Studio Maliki</h2><small>Klip + Motion · gratis · jalan di laptopmu</small></div>
+  <div class="wiz-kepala"><span class="lambang">is</span><div><h2>Pemasangan isanovski Studio</h2><small>Klip + Motion · gratis · jalan di laptopmu</small></div>
     <div class="wiz-langkah" id="wizTitik"><span>1 · persyaratan</span><span>2 · komponen</span><span>3 · sambungkan ai</span><span>4 · selesai</span></div></div>
   <div class="wiz-isi">
     <div data-wiz="1"><h3>Cek persyaratan laptop</h3><p>Studio memeriksa laptopmu secara otomatis. Tanda ⚠ berarti tetap bisa jalan, tapi mungkin lambat atau ada fitur yang sebaiknya dilewati.</p>
@@ -771,8 +1001,8 @@ main{position:relative;z-index:1}
     <div data-wiz="3" hidden><h3>Sambungkan AI</h3><p>Pilih AI yang kamu punya. Ikuti langkah bernomor, lalu tekan Uji koneksi. Tidak punya apa-apa? Pilih <b>Lokal</b> — tetap jalan, gratis.</p><div id="wizAI"></div></div>
     <div data-wiz="4" hidden><h3>Studio siap dipakai 🎉</h3><p>Pengaturan bisa diubah kapan saja di menu <b>Pengaturan AI</b>. Wizard ini bisa dibuka lagi dari kartu <b>cek sistem</b>.</p>
       <div class="bento" style="grid-template-columns:1fr 1fr">
-        <div class="kartu b-aksi" data-wiz-ke="klip" style="--w:#22d3ee;grid-column:auto;min-height:150px"><h2>Potong video jadi klip</h2><p>Tempel link YouTube atau seret video.</p><span class="panah">mulai →</span></div>
-        <div class="kartu b-aksi" data-wiz-ke="motion" style="--w:#818cf8;grid-column:auto;min-height:150px"><h2>Topik jadi video animasi</h2><p>24 gaya, suara narator otomatis.</p><span class="panah">mulai →</span></div>
+        <div class="kartu b-aksi" data-wiz-ke="klip" style="--w:#f5a524;grid-column:auto;min-height:150px"><h2>Potong video jadi klip</h2><p>Tempel link YouTube atau seret video.</p><span class="panah">mulai →</span></div>
+        <div class="kartu b-aksi" data-wiz-ke="motion" style="--w:#ff7a45;grid-column:auto;min-height:150px"><h2>Topik jadi video animasi</h2><p>24 gaya, suara narator otomatis.</p><span class="panah">mulai →</span></div>
       </div></div>
   </div>
   <div class="wiz-kaki"><span class="ket" id="wizKet"></span><button class="tombol kedua" id="wizKembali">Kembali</button><button class="tombol utama" id="wizLanjut">Lanjut</button></div>
@@ -786,7 +1016,7 @@ const mesinMati = (mati) => { const el = $('#mesinMati'); if (el) el.hidden = !m
 const api = async (url, body) => {
   let r;
   try { r = await fetch(url, body === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}); }
-  catch { mesinMati(true); throw new Error('Mesin Studio berhenti. Tutup jendela ini lalu buka lagi Studio Maliki.'); }
+  catch { mesinMati(true); throw new Error('Mesin Studio berhenti. Tutup jendela ini lalu buka lagi isanovski Studio.'); }
   mesinMati(false);
   const j = await r.json();
   if (!r.ok) throw new Error(j.galat || 'Gagal');
@@ -1062,7 +1292,7 @@ function gambarPanduan() {
       langkah(2, 'Simpan & uji', 'Pilih Lokal lalu tekan Simpan pengaturan.', PENG.AI === 'lokal')],
     gemini: [langkah(1, 'Buka Google AI Studio', 'Masuk dengan akun Google-mu (gratis).', st.gemini.kunci, '<button class="tombol kedua kecil" data-url="https://aistudio.google.com/apikey">Buka AI Studio ↗</button>'),
       langkah(2, 'Klik "Create API key"', 'Pilih proyek bawaan, lalu salin kunci yang diawali <code>AIza</code>.', st.gemini.kunci),
-      langkah(3, 'Tempel kuncinya di bawah', 'Kunci hanya disimpan di laptop ini, tidak pernah dikirim ke Studio Maliki.', st.gemini.kunci),
+      langkah(3, 'Tempel kuncinya di bawah', 'Kunci hanya disimpan di laptop ini, tidak pernah dikirim ke mana pun.', st.gemini.kunci),
       langkah(4, 'Simpan & uji koneksi', 'Tekan Simpan pengaturan, lalu Uji koneksi.', st.gemini.kunci && PENG.AI === 'gemini')],
     openai: [langkah(1, 'Pasang Ollama', st.openai.ollama ? 'Ollama sudah terpasang.' : 'Unduh aplikasi Ollama (gratis), pasang, lalu buka sekali.', st.openai.ollama,
         st.openai.ollama ? '' : '<button class="tombol kedua kecil" data-url="https://ollama.com/download">Unduh Ollama ↗</button>'),
@@ -1232,7 +1462,7 @@ function hasilKlip(h) {
   const dur = info.durasi || Math.max(...klips.map((k) => k.selesai), 1);
   const titik = (arr) => arr.map((v, i) => `${(i / Math.max(arr.length - 1, 1)) * 1000},${60 - v * 52}`).join(' ');
   const hm = (info.heatmap || []).map((p) => p.value);
-  const svg = `<svg viewBox="0 0 1000 64" preserveAspectRatio="none">${info.energi?.length ? `<polyline fill="none" stroke="#818cf8" stroke-opacity=".8" stroke-width="2" points="${titik(info.energi)}"/>` : ''}${hm.length ? `<polyline fill="none" stroke="#10b981" stroke-width="2" points="${titik(hm)}"/>` : ''}</svg>`;
+  const svg = `<svg viewBox="0 0 1000 64" preserveAspectRatio="none">${info.energi?.length ? `<polyline fill="none" stroke="#ff7a45" stroke-opacity=".8" stroke-width="2" points="${titik(info.energi)}"/>` : ''}${hm.length ? `<polyline fill="none" stroke="#10b981" stroke-width="2" points="${titik(hm)}"/>` : ''}</svg>`;
   const rentang = klips.map((k) => `<div class="rentang" style="left:${k.mulai / dur * 100}%;width:${(k.selesai - k.mulai) / dur * 100}%"><span>#${k.no}</span></div>`).join('');
   const terender = klips.filter((k) => k.file).length;
   el.innerHTML = `
@@ -1462,7 +1692,7 @@ function gambarKanvas() {
   let bar = 0;
   if (G.layout === 'split') { gb(1080 / 958, 0, 0, W, 958 * S, 0.3, 0.4, 0.55); ctx.fillStyle = '#111'; ctx.fillRect(0, 958 * S, W, 4 * S); gb(1080 / 958, 0, 962 * S, W, 958 * S, 0.7, 0.4, 0.55); }
   else if (G.layout === 'facecam') { gb(1080 / 768, 0, 0, W, 768 * S, 0.5, 0.35, 0.5); gb(1080 / 1152, 0, 768 * S, W, 1152 * S, 0.5); }
-  else if (G.layout === 'pip') { gb(9 / 16, 0, 0, W, H, 0.5); const k = 380 * S, x = W - k - 60 * S, y = 220 * S; ctx.fillStyle = '#22d3ee'; ctx.fillRect(x - 6 * S, y - 6 * S, k + 12 * S, k + 12 * S); gb(1, x, y, k, k, 0.5, 0.35, 0.45); }
+  else if (G.layout === 'pip') { gb(9 / 16, 0, 0, W, H, 0.5); const k = 380 * S, x = W - k - 60 * S, y = 220 * S; ctx.fillStyle = '#f5a524'; ctx.fillRect(x - 6 * S, y - 6 * S, k + 12 * S, k + 12 * S); gb(1, x, y, k, k, 0.5, 0.35, 0.45); }
   else if (G.rasio === '9:16') gb(9 / 16, 0, 0, W, H);
   else {
     const r = RASIO_G[G.rasio]; const ih = W / r; bar = (H - ih) / 2;
@@ -1573,7 +1803,7 @@ async function muatRiwayat() {
   <div class="mm-kotak"><span class="titik-merah"></span>
     <h2 id="mmJudul">Mesin Studio berhenti</h2>
     <p>Jendela ini masih terbuka, tapi mesin di belakangnya sudah mati, jadi link dan video tidak bisa diproses.
-      Tutup jendela ini, lalu buka lagi <b>Studio Maliki</b> dari Desktop atau Applications. Hasil yang sudah jadi tetap aman di Riwayat.</p>
+      Tutup jendela ini, lalu buka lagi <b>isanovski Studio</b> dari Desktop atau Applications. Hasil yang sudah jadi tetap aman di Riwayat.</p>
     <button class="tombol kecil" id="mmCoba">Coba sambung lagi</button>
   </div>
 </div>
