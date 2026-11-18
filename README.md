@@ -35,9 +35,24 @@ Yang muncul:
   Mau bikin apa? [1]:
 ```
 
-Pilih **1**, lalu tempel link YouTube atau **seret file videonya** ke terminal. Ditanya jumlah klip,
-durasi, dan pemilih momen — semua sudah ada nilai bawaan, jadi **Enter terus saja** kalau tidak mau
-mikir. Progres berjalan di layar, hasilnya langsung ditampilkan:
+Pilih **1**. Video yang sudah ada di folder repo (atau di folder unggahan web UI) langsung didaftar,
+urut dari yang terbaru — tinggal ketik nomornya:
+
+```
+  Video yang ketemu (urut dari yang terbaru):
+
+    1 video.mp4                                    62.3 MB
+    2 unggahan/podcast-ep12.mp4                    71.5 MB
+    3 tempel jalur lain / link YouTube
+    4 batal
+
+  Pilih video [1]:
+```
+
+Kalau videonya belum ada di daftar: pilih **tempel jalur lain**, lalu seret file ke terminal (jalurnya
+otomatis ditempel) atau tempel link YouTube. Berikutnya ditanya jumlah klip, durasi, dan pemilih momen —
+semua ada nilai bawaan, jadi **Enter terus saja** kalau tidak mau mikir. Progres berjalan di layar,
+hasilnya langsung ditampilkan:
 
 ```
   ✓ 3 klip · total 41.2 MB · hasil/podcast-20261118-1411
@@ -176,8 +191,9 @@ TANPA_WEB=1 bash pasang-cloud.sh
 
 `TANPA_WEB=1` = pasang dependensi saja, jangan nyalakan server web.
 
-Masukkan video dengan **seret file ke panel Explorer** (folder mana saja), lalu di menu pilih **1** dan
-tempel nama filenya. Ambil hasilnya: klik kanan `.mp4` di Explorer → **Download**.
+Masukkan video dengan **seret file ke panel Explorer** (folder mana saja). Setelah itu `./mulai` → **1**,
+dan videonya sudah muncul di daftar — tidak perlu mengetik nama file. Ambil hasilnya: klik kanan `.mp4`
+di Explorer → **Download**.
 
 Atau dari laptopmu (butuh `gh auth refresh -h github.com -s codespace` sekali saja):
 

@@ -278,6 +278,31 @@ def simpan_kunci(kunci: str) -> None:
         pass
 
 
+VIDEO_EKST = {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi", ".ts", ".flv"}
+LEWATI = {".git", "node_modules", "__pycache__", "hasil", "out", ".kerja", "dist", ".cache"}
+
+
+def cari_video(batas: int = 12) -> list[Path]:
+    """Kumpulkan berkas video di sekitar repo + folder unggahan web UI."""
+    akar_cari = [Path.cwd(), AKAR, AKAR / "unggahan", PENGATURAN.parent / "unggahan"]
+    ketemu: dict[Path, float] = {}
+    for awal in akar_cari:
+        if not awal.exists():
+            continue
+        for f in awal.rglob("*"):
+            if len(f.parts) - len(awal.parts) > 3:
+                continue
+            if any(b in LEWATI or b.startswith("hasil-") for b in f.parts[len(awal.parts):-1]):
+                continue
+            if f.is_file() and f.suffix.lower() in VIDEO_EKST:
+                try:
+                    ketemu.setdefault(f.resolve(), f.stat().st_mtime)
+                except OSError:
+                    continue
+    urut = sorted(ketemu.items(), key=lambda x: -x[1])
+    return [f for f, _ in urut][:batas]
+
+
 def durasi_video(jalur: str) -> int:
     """Durasi dalam detik lewat ffprobe kalau ada; 0 kalau tidak tahu."""
     if not shutil.which("ffprobe") or jalur.startswith("http"):
@@ -294,12 +319,49 @@ def durasi_video(jalur: str) -> int:
 # ── alur 1: klip ─────────────────────────────────────────────────────────────
 def alur_klip(kering: bool = False) -> None:
     judul("Potong video jadi klip 9:16")
-    info("Tempel link YouTube, atau seret file videonya ke sini (Enter = batal).")
-    print()
-    sumber = tanya("Video")
+    daftar = cari_video()
+    sumber = ""
+    if daftar:
+        info("Video yang ketemu (urut dari yang terbaru):")
+        print()
+        opsi = []
+        for v in daftar:
+            try:
+                ukuran = manusia(v.stat().st_size)
+            except OSError:
+                ukuran = "?"
+            try:
+                nama = v.relative_to(AKAR)
+            except ValueError:
+                nama = v
+            teks = str(nama)
+            if len(teks) > 44:
+                teks = "…" + teks[-43:]
+            print(f"    {DIM(str(len(opsi) + 1))} {teks:<45} {DIM(ukuran)}")
+            opsi.append(v)
+        print(f"    {DIM(str(len(opsi) + 1))} tempel jalur lain / link YouTube")
+        print(f"    {DIM(str(len(opsi) + 2))} batal")
+        print()
+        while True:
+            jawab = tanya("Pilih video", "1")
+            if jawab.isdigit() and 1 <= int(jawab) <= len(opsi) + 2:
+                ke = int(jawab) - 1
+                break
+            gagal(f"Pilih 1–{len(opsi) + 2}.")
+        if ke < len(opsi):
+            sumber = str(opsi[ke])
+        elif ke == len(opsi) + 1:
+            return
+        else:
+            info("Seret file ke sini, atau tempel link YouTube, lalu Enter.")
+            sumber = bersihkan_jalur(tanya("Jalur / link"))
+    else:
+        info("Belum ada file video di sekitar sini.")
+        info("Seret file videonya ke terminal (atau tempel jalur / link YouTube).")
+        print()
+        sumber = bersihkan_jalur(tanya("Jalur / link"))
     if not sumber:
         return
-    sumber = bersihkan_jalur(sumber)
 
     if sumber.startswith("http"):
         info("Link diterima — pengunduhan bisa gagal kalau IP ini diblokir YouTube.")
