@@ -34,6 +34,8 @@ from pathlib import Path
 
 import numpy as np
 
+from framing import frame_shot, layout_filter, load_model, is_installed  # type: ignore
+
 KATA_HOOK = {
     # kata yang sering membuka momen menarik (ID + EN)
     "rahasia", "ternyata", "jangan", "kenapa", "gimana", "bagaimana", "penting", "masalahnya",
@@ -83,6 +85,17 @@ def info_video(file: Path) -> tuple[float, int, int]:
     w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     cap.release()
     return (n / fps if n else 0.0), w, h
+
+
+def ada_audio(file: Path) -> bool:
+    """True kalau video sumber punya setidaknya satu stream audio."""
+    try:
+        r = subprocess.run(
+            [ffmpeg(), "-v", "error", "-i", str(file), "-map", "0:a", "-f", "null", "-"],
+            capture_output=True, text=True, timeout=30)
+        return r.returncode == 0
+    except Exception:
+        return False
 
 
 # ── 2. Energi audio per detik ───────────────────────────────────────────────
@@ -511,8 +524,8 @@ def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[fl
         return [tuple(x) for x in siap]
     import cv2
     fps = 6.0
-    depan = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-    profil = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_profileface.xml")
+    depan = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml") if hasattr(cv2, "CascadeClassifier") else None
+    profil = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_profileface.xml") if hasattr(cv2, "CascadeClassifier") else None
     try:
         suara = amplop_suara(file, a, b, fps)
     except Exception:  # noqa: BLE001 — video tanpa audio
@@ -554,8 +567,8 @@ def jejak_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[tuple[fl
                 if fw > 8 and fh > 8:
                     kotak.append((x, y, min(fw, LB - x), min(fh, TB - y), 1.0))
         else:
-            kotak = [(x, y, fw, fh, 1.0) for (x, y, fw, fh) in depan.detectMultiScale(abu, 1.1, 5, minSize=(24, 24))]
-        if not kotak:  # profil hanya bila tidak ada wajah depan (hemat waktu)
+            kotak = [(x, y, fw, fh, 1.0) for (x, y, fw, fh) in depan.detectMultiScale(abu, 1.1, 5, minSize=(24, 24))] if depan else []
+        if not kotak and profil is not None:  # profil hanya bila tidak ada wajah depan (hemat waktu)
             kotak += [(x, y, fw, fh, 0.8) for (x, y, fw, fh) in profil.detectMultiScale(abu, 1.1, 5, minSize=(24, 24))]
             kotak += [(LB - x - fw, y, fw, fh, 0.8) for (x, y, fw, fh) in
                       profil.detectMultiScale(cv2.flip(abu, 1), 1.1, 5, minSize=(24, 24))]
@@ -1147,6 +1160,8 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
     if layout == "split" and not dua:
         log("   Split Podcast: hanya satu orang terlihat → bingkai tunggal")
     cx = FOKUS.get(fokus, 0.5)
+    if fokus == "manual" and g.get("face_x") is not None:
+        cx = float(g["face_x"])
     durasi = klip.selesai - klip.mulai
     graf = []
     bar_atas = 0
@@ -1175,36 +1190,72 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         graf.append(f"[vb]{potong(w, h, 1.0, wajah['x'], wajah['y'], zoom)},scale=380:380,setsar=1,"
                     f"pad=392:392:6:6:color=0x22D3EE[kecil]")
         graf.append("[utama][kecil]overlay=x=W-w-60:y=220[vid]")
-    elif layout == "gamer" and g.get("facecam"):
-        # Game di atas, facecam overlay di bawah tengah (mode 2 kamera gamer)
-        fc_path = Path(g["facecam"]).resolve()
-        fc_dur, fw, fh = info_video(fc_path)
-        game_h = int(1920 * 0.66) // 2 * 2  # game ambil ~66% atas (genap untuk libx264)
-        fc_wajah = info_wajah(fc_path, klip.mulai, klip.selesai, fw, fh)
+    elif layout == "gamer":
+        fc_h = 720   # facecam 720x720 di tengah atas, diperagang pas
+        game_h = 840   # gameplay 1080x840 (4:3 crop) di bawah
+        g["posisi_y"] = 42   # subtitle ~800px dari atas (tengah frame)
+        g["ukuran"] = "kecil"
 
-        # Game: crop 9:16 tengah, scale ke tinggi game_h, lalu pad ke kanvas 1080x1920 penuh
-        graf.append(f"[0:v]{potong(w, h, 9 / 16, 0.5, 0.5)},scale=1080:{game_h}:flags=lanczos,setsar=1[game_raw]")
-        graf.append(f"[game_raw]pad=1080:1920:0:0:color=black[game]")
+        if g.get("facecam"):
+            # Dua file: facecam terpisah + gameplay
+            fc_path = Path(g["facecam"]).resolve()
+            # Facecam: 720x720 apa adanya (tidak diperagang), di tengah atas
+            graf.append(f"[FACECAM:v]scale=720:720:flags=lanczos,setsar=1[fc]")
 
-        # Facecam: deteksi wajah, crop persegi di sekitar wajah, perbesar, scale ke 540x540
-        # input indeks disesuaikan setelah masukan_extra lengkap (lihat pengganti [FACECAM:v] di bawah)
-        if fc_wajah:
-            fc_zoom = min(max(fc_wajah["s"] * 3.0, 0.25), 1.0)
-            graf.append(f"[FACECAM:v]{potong(fw, fh, 1.0, fc_wajah['x'], fc_wajah['y'], fc_zoom)},scale=540:540:flags=lanczos,setsar=1[facecam]")
+            # Gameplay: TETEP LANDSCAPE 4:3 dari input 0 langsung
+            graf.append(f"[0:v]crop=min(iw\\,ih*4/3):min(ih\\,iw*3/4),scale=1080:840:flags=lanczos,setsar=1[game_scaled]")
+
+            # Facecam di tengah atas, gameplay di bawahnya, sisanya hitam
+            fc_x = (1080 - 720) // 2
+            graf.append(f"[game_scaled][fc]overlay=x={fc_x}:y=0[vid_base]")
+            graf.append(f"[vid_base]pad=1080:1920:0:0:color=black[vid]")
         else:
-            graf.append(f"[FACECAM:v]{potong(fw, fh, 1.0, 0.5, 0.5)},scale=540:540:flags=lanczos,setsar=1[facecam]")
+            # Satu file: split input 0 -> facecam atas + gameplay bawah
+            graf.append("[0:v]split=2[va][vb]")
 
-        # Border halus di sekitar facecam
-        graf.append(f"[facecam]pad=552:552:6:6:color=0x22D3EE[fc]")
+            # Facecam: deteksi wajah, crop strip bawah, scale ke 720x720
+            kunci = jejak_wajah(file, klip.mulai, klip.selesai, w, h) if is_installed() else [(0.0, 0.5)]
+            ch_src = min(int(h * 0.45) // 2 * 2, h)
+            y_src = h - ch_src
+            if len(kunci) > 1:
+                x_pos = kunci[-1][1]
+            else:
+                x_pos = kunci[0][1]
+            if x_pos < 0.40:
+                x_src = 0
+                cw_src = w
+            elif x_pos > 0.60:
+                x_src = int(w * 0.33)
+                cw_src = int(w * 0.67)
+            else:
+                x_src = 0
+                cw_src = w
+            cw_src = min(cw_src, w - x_src)
+            cw_src = cw_src // 2 * 2
+            graf.append(f"[va]crop={cw_src}:{ch_src}:{x_src}:{y_src},scale=720:720:flags=lanczos,setsar=1[fc]")
 
-        # Overlay facecam di bawah tengah game, sedikit di atas agar subtitel tidak tertutup
-        fc_y = game_h + 30
-        graf.append(f"[game][fc]overlay=x=(W-w)/2:y={fc_y}:shortest=1[vid]")
+            # Gameplay: TETEP LANDSCAPE 4:3
+            graf.append(f"[vb]crop=min(iw\\,ih*4/3):min(ih\\,iw*3/4),scale=1080:840:flags=lanczos,setsar=1[game_scaled]")
+
+            # Susun: facecam di tengah atas, gameplay di bawah, sisanya hitam
+            fc_x = (1080 - 720) // 2
+            graf.append(f"[game_scaled][fc]overlay=x={fc_x}:y=0[vid_base]")
+            graf.append(f"[vid_base]pad=1080:1920:0:0:color=black[vid]")
+
     elif rasio == "9:16":
-        if fokus == "auto":  # ikuti pembicara per adegan, termasuk saat kamera berganti
-            crop = potong_jejak(w, h, 9 / 16, jejak_wajah(file, klip.mulai, klip.selesai, w, h))
-        else:
+        if fokus == "auto":
+            # Smart face framing: ikuti wajah pembicara aktif per shot (dari framing.py)
+            if is_installed():
+                kunci = jejak_wajah(file, klip.mulai, klip.selesai, w, h)
+                crop = potong_jejak(w, h, 9 / 16, kunci)
+            else:
+                log("   Face tracking: model YuNet belum siap → bingkai tengah")
+                crop = potong(w, h, 9 / 16, cx)
+        elif fokus == "manual":
+            # User menentukan posisi wajah (0.0 kiri … 1.0 kanan)
             crop = potong(w, h, 9 / 16, cx)
+        else:  # "fit" → layar penuh, tidak dipotong
+            crop = f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1"
         graf.append(f"[0:v]{crop},scale=1080:1920:flags=lanczos,setsar=1[vid]")
     else:
         r = RASIO.get(rasio, 1.0)
@@ -1221,9 +1272,9 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         graf.append(f"[latar][isi]overlay=x=0:y={bar_atas}[vid]")
 
     c = gaya_akhir(g)
-    v = "vid"  # label video saat ini di filtergraph
-    # zoom punch-in singkat pada kata kunci
-    if c.get("zoom"):
+    v = "vid"
+    # zoom punch-in singkat pada kata kunci (diabaikan untuk layout gamer — wajah + gameplay sudah cukup ramai)
+    if c.get("zoom") and g.get("layout") != "gamer":
         tt = detik_kunci(kal, klip)
         if tt:
             import cv2
@@ -1288,7 +1339,7 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
             # frame 40 = pita sudah penuh; frame terakhir animasi justru pitanya keluar layar
             hiasan("sobek", 0.0, tahan=max(durasi - 1.0, 0), beku=40)
     # emoji otomatis (gambar Twemoji) di atas baris subtitle
-    if c.get("emoji") and g.get("subtitle", True):
+    if c.get("emoji") and g.get("subtitle", True) and g.get("layout") != "gamer":
         rencana = rencana_emoji(kal, klip, c["per"])
         y_emoji = int(1920 * float(g.get("posisi_y", 72)) / 100 - c["uk"] * 1.4 - 150)
         for kode in dict.fromkeys(x[2] for x in rencana):
@@ -1303,6 +1354,11 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         graf.append(f"color=c={c['warna']}:s=1080x10:r=30:d={durasi:.2f}[pb]")
         graf.append(f"[{v}][pb]overlay=x='-W+W*t/{durasi:.2f}':y=H-10:eof_action=pass[vp]")
         v = "vp"
+    if g.get("layout") == "gamer":
+        g["banner"] = False
+        g["judul_buka"] = False
+        g["akun"] = ""
+        g["watermark"] = ""
     if g.get("subtitle", True) or g.get("banner", True) or c.get("akun") or (g.get("judul_buka", True) and klip.judul) \
             or c.get("watermark"):
         ass = kerja / f"{out.stem}.ass"
@@ -1314,7 +1370,7 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
             except OSError:  # Windows tanpa izin symlink → salin
                 import shutil as _sh
                 _sh.copytree(FONT_DIR, fdir)
-        graf.append(f"[{v}]subtitles=filename='{ass.name}':fontsdir=font[vout]")
+        graf.append(f"[{v}]subtitles=filename='{ass.name}':fontsdir=font[vout]" if (ada_audio(file) and kal) else f"[{v}]null[vout]")
     else:
         graf.append(f"[{v}]null[vout]")
 
@@ -1399,6 +1455,9 @@ def muat_transkrip(file: Path, a, kerja: Path) -> list[Kalimat]:
     if a.subtitle_file:
         log(f"Memakai subtitle dari {Path(a.subtitle_file).name}.")
         return baca_srt(Path(a.subtitle_file))
+    if not ada_audio(file):
+        log("Tidak ada audio di video → subtitle dilewati.")
+        return []
     cache = kerja / f"transkrip-{file.stem}-{a.model}.json"
     if cache.exists():
         log("Transkrip diambil dari cache.")
@@ -1560,8 +1619,19 @@ def main() -> None:
     p.add_argument("--watermark", help="teks di tengah klip, putih transparan ±50%%, mis. @akunmu")
     p.add_argument("--layout", default="tunggal", choices=["tunggal", "facecam", "pip", "gamer"], help="tampilan klip: tunggal, facecam, pip, gamer")
     p.add_argument("--facecam", help="file facecam kamera untuk layout gamer (2 kamera, game di atas + wajah di bawah)")
+    p.add_argument("--face-mode", default="auto", choices=["auto", "manual", "fit"], help="bingkai 9:16: auto (ikuti wajah bicara), manual (tentukan --face-x), fit (layar penuh)")
+    p.add_argument("--face-x", type=float, default=0.5, help="posisi wajah 0.0 (kiri) … 1.0 (kanan) untuk --face-mode manual")
     p.add_argument("--gaya", help="JSON gaya render (rasio, latar, fokus, layout, banner, subtitle, musik, …)")
     a = p.parse_args()
+
+    # Konfirmasi interaktif saat jalan langsung via CLI (web studio.py selalu pass --layout)
+    if not a.layout or a.layout == "tunggal":
+        if sys.stdin.isatty():
+            print("\nPilih layout klip:")
+            print("  1. Biasa (tunggal layar)")
+            print("  2. Gamer (wajah di atas + gameplay landscape di bawah)")
+            pilih = input("Masukkan 1 atau 2 [1]: ").strip()
+            a.layout = "gamer" if pilih == "2" else "tunggal"
 
     if a.uji_ai:
         if a.uji_ai == "lokal":
@@ -1574,10 +1644,13 @@ def main() -> None:
     keluar = Path(a.keluar).resolve()
     kerja = keluar / ".kerja"
     kerja.mkdir(parents=True, exist_ok=True)
-    gaya = {**({"warna": a.warna} if a.warna else {}), "subtitle": not a.tanpa_subtitle, "fokus": "tengah" if a.tanpa_wajah else "auto",
-            "layout": a.layout, "banner": False, **({"broll": a.broll, "broll_file": a.broll_file} if a.broll else {}),
-            **({"watermark": a.watermark} if a.watermark else {}),
-            **({"facecam": a.facecam} if a.facecam else {})}
+    gaya = {**( {"warna": a.warna} if a.warna else {}), "subtitle": not a.tanpa_subtitle,
+            "fokus": "tengah" if a.tanpa_wajah else a.face_mode,
+            "layout": a.layout, "banner": False,
+            **( {"broll": a.broll, "broll_file": a.broll_file} if a.broll else {}),
+            **( {"watermark": a.watermark} if a.watermark else {}),
+            **( {"facecam": a.facecam} if a.facecam else {}),
+            **( {"face_x": a.face_x} if a.face_mode == "manual" else {} )}
     if a.gaya:
         isi = a.gaya if a.gaya.lstrip().startswith("{") else Path(a.gaya).read_text(encoding="utf-8")
         gaya.update(json.loads(isi))

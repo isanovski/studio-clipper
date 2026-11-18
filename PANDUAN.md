@@ -101,9 +101,52 @@ Pilih **4** untuk tahu cara download file hasilnya (di Codespace: klik kanan `.m
 
 ---
 
-## 4. Perintah Manual (klip.py)
+## 4. Mode Bingkai Wajah (Face Framing)
 
-Kalau nggak mau pakai menu, pakai `klip.py` langsung.
+Studio-clipper sekarang mendeteksi wajah dalam video secara otomatis dan mengikuti pembicara aktif saat memotong 9:16. Cocok untuk video gaming, wawancara, dan podcast.
+
+### Opsi di menu `./mulai`
+
+Saia memilih tampilan klip, Studio akan menanyakan **Mode Bingkai Wajah**:
+
+| Mode | Keterangan |
+|------|------------|
+| **Auto (ikuti wajah bicara)** | Deteksi wajah per shot, ikuti wajah yang bicara (gerak mulut seirama suara). Wajah bergeser di layar saat pembicara berganti. |
+| **Manual (tentukan posisi)** | Kamu menentukan posisi wajah secara manual dengan slider 0.0 (kiri) … 1.0 (kanan). Cocok untuk mood atau komposisi tertentu. |
+| **Fit (layar penuh)** | Tidak dipotong. Video ditampilkan penuh dengan blurred backdrop di sisi kiri-kanan. |
+
+### Opsi CLI (`klip/klip.py`)
+
+```bash
+# Auto: ikuti wajah bicara (default)
+uv run klip/klip.py video.mp4 --face-mode auto
+
+# Manual: wajah di posisi 70% dari kiri
+uv run klip/klip.py video.mp4 --face-mode manual --face-x 0.7
+
+# Fit: layar penuh, tidak dipotong
+uv run klip/klip.py video.mp4 --face-mode fit
+
+# Gabung dengan layout gamer
+uv run klip/klip.py game.mp4 --layout gamer --face-mode auto --facecam kamera.mp4
+```
+
+### Cara kerja internal
+
+1. Video di-scan per shot (potongan kamera).
+2. Setiap shot di-analisis 1×/detik dengan model **YuNet** (bundled di `klip/model/`).
+3. Wajah yang gerak mulutnya paling seirama dengan suara = pembicara aktif.
+4. Crop window 9:16 mengikuti wajah tersebut; pindah seketika di cut kamera, atau halus (ease) saat pembicara berganti dalam satu shot.
+5. Tanpa wajah atau wajah tidak muat window → `fit` (layar penuh dengan blurred backdrop).
+
+### Contoh hasil
+
+- **Solo gamer**: wajah di pojok kanan otomatis diikuti saat bergerak.
+- **Duo podcast**: dua wajah diframe bersama jika muat; jika tidak, yang bicara difokuskan.
+- **Gameplay tanpa wajah**: tampilan penuh (fit), tidak ada crop aneh.
+
+---
+
 
 ### A. Analisis + render (paling sering dipake)
 

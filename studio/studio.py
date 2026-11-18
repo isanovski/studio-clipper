@@ -172,7 +172,7 @@ def jalankan_skrip(skrip: Path) -> list[str]:
 
 
 def cari_uv() -> str:
-    for c in (os.environ.get("STUDIO_UV"), shutil.which("uv"), str(Path.home() / ".local/bin/uv"), str(Path.home() / ".local/bin/uv.exe"),
+    for c in (os.environ.get("STUDIO_UV"), shutil.which("uv"), str(Path.home() / ".local/bin/uv"), str(Path.home() / ".hermes/bin/uv"), str(Path.home() / ".local/bin/uv.exe"),
               "/opt/homebrew/bin/uv"):
         if c and Path(c).exists():
             return c
@@ -392,7 +392,14 @@ def mulai_klip(d: dict) -> dict:
     cmd = [*jalankan_skrip(KLIP / "klip.py"), sumber, "--keluar", str(folder),
            "--jumlah", str(int(d.get("jumlah", 3))), "--durasi", str(int(d.get("durasi", 30))),
            "--ai", penyedia_ai(d.get("ai")), "--model", d.get("model", "small"),
-           "--warna", d.get("warna", "#FFB020")]
+           "--warna", d.get("warna", "#FFB020"),
+           "--layout", d.get("layout", "tunggal")]
+    if d.get("facecam"):
+        cmd += ["--facecam", d["facecam"]]
+    if d.get("face_mode"):
+        cmd += ["--face-mode", d["face_mode"]]
+    if d.get("face_x") is not None:
+        cmd += ["--face-x", str(d["face_x"])]
     cmd.append("--hanya-analisis")
     if d.get("arahan"):
         cmd += ["--arahan", d["arahan"]]
@@ -424,6 +431,21 @@ def mulai_render_klip(d: dict) -> dict:
             gaya[k] = str(p) if p.exists() else ""
     gaya["broll_file"] = [str(DATA / "aset" / Path(x).name) for x in (gaya.get("broll_file") or [])
                           if (DATA / "aset" / Path(x).name).exists()]
+    # ambil layout & facecam dari permintaan analisis jika belum diatur di gaya render
+    permintaan = folder / "permintaan.json"
+    if permintaan.exists():
+        try:
+            p = json.loads(permintaan.read_text(encoding="utf-8"))
+            if p.get("layout") and not gaya.get("layout"):
+                gaya["layout"] = p["layout"]
+            if p.get("facecam") and not gaya.get("facecam"):
+                gaya["facecam"] = p["facecam"]
+            if p.get("face_mode") and not gaya.get("fokus"):
+                gaya["fokus"] = p["face_mode"]
+            if p.get("face_x") is not None and gaya.get("face_x") is None:
+                gaya["face_x"] = p["face_x"]
+        except (json.JSONDecodeError, OSError):
+            pass
     # judul banner hasil suntingan pengguna
     if d.get("judul"):
         daftar = json.loads((folder / "klip.json").read_text(encoding="utf-8"))
@@ -610,6 +632,12 @@ class H(BaseHTTPRequestHandler):
         if asal.rstrip("/") in (f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}"):
             return True
         inang = (self.headers.get("Host") or "").strip().lower()
+        asal_host = urlparse(asal).netloc.lower()
+        if asal_host == inang:
+            return True
+        # Izinkan domain melalui Cloudflare Tunnel (studio.onegate.biz.id, dll.)
+        if asal_host.endswith(".onegate.biz.id") or asal_host == "onegate.biz.id":
+            return True
         return bool(inang) and urlparse(asal).netloc.lower() == inang
 
     def do_GET(self):

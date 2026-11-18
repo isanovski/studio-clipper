@@ -409,6 +409,19 @@ def alur_klip(kering: bool = False) -> None:
         if facecam and not Path(facecam).exists() and not Path((Path.cwd() / facecam)).exists():
             gagal(f"File facecam tidak ditemukan: {facecam}")
             facecam = ""
+    print()
+    fm_ke = pilih("Mode bingkai wajah", ["auto (ikuti wajah bicara)", "manual (tentukan posisi)", "fit (layar penuh, jangan potong)"], 0)
+    face_mode = ["auto", "manual", "fit"][fm_ke]
+    face_x = 0.5
+    if face_mode == "manual":
+        fx = tanya("Posisi wajah 0.0 (kiri) … 1.0 (kanan)", "0.5")
+        try:
+            face_x = float(fx)
+            if not 0 <= face_x <= 1:
+                raise ValueError
+        except ValueError:
+            gagal("Posisi wajah harus 0.0–1.0, pakai 0.5")
+            face_x = 0.5
 
     if sumber.startswith("http"):
         slug = "youtube"
@@ -427,7 +440,9 @@ def alur_klip(kering: bool = False) -> None:
     cmd = [uv_cmd(), "run", "klip/klip.py", sumber,
            "--jumlah", str(jumlah), "--durasi", str(durasi),
            "--keluar", str(tujuan), "--ai", ai,
-           "--layout", layout]
+           "--layout", layout,
+           "--face-mode", face_mode,
+           "--face-x", str(face_x)]
     if arahan:
         cmd += ["--arahan", arahan]
     if wm and wm != "-":
