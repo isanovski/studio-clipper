@@ -142,6 +142,13 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
         <span id="nFacecam">belum ada</span>
       </div>
     </div>
+    <div style="margin-top:12px;">
+      <label>Preset cari momen</label>
+      <div class="pil" id="pilMomen">
+        <button data-v="umum" class="aktif">Umum (hook + bicara padat)</button>
+        <button data-v="gamer">Gamer (teriakan + reaksi wajah + aksi game)</button>
+      </div>
+    </div>
     <div class="aksi" style="margin-top:16px">
       <button class="tombol utama" id="tblKlip">Analisis &amp; pilih momen</button>
     </div>
@@ -259,7 +266,8 @@ $('#pilLayout').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$
 let facecamPath='';
 $('#tblFacecam').onclick=()=>$('#pilihFacecam').click();
 $('#pilihFacecam').onchange=async(e)=>{const f=e.target.files[0];if(!f)return;const r=await fetch('/api/unggah',{method:'POST',headers:{'X-Nama-File':f.name,'X-Jenis':'aset'},body:f});const j=await r.json();facecamPath=j.jalur;$('#nFacecam').textContent=f.name;toast('Facecam tersimpan: '+f.name);};
-$('#tblKlip').onclick=async()=>{const sumber=$('#sumber').value.trim();if(!sumber)return toast('Isi link YouTube atau pilih file video',true);const d={sumber,jumlah:+$('#pilDurasi .aktif').dataset.v,durasi:+$('#pilDurasi .aktif').dataset.v,layout:$('#pilLayout .aktif').dataset.v,face_mode:$('#pilFace .aktif').dataset.v,face_x:+$('#gFaceX').value/100};if($('#arahan').value)d.arahan=$('#arahan').value;if(d.layout==='gamer'&&facecamPath)d.facecam=facecamPath;try{await api('/api/klip',d);toast('Menganalisis video…');}catch(e){toast(e.message,true);}};
+$('#pilMomen').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilMomen button').forEach(x=>x.classList.toggle('aktif',x===b));};
+$('#tblKlip').onclick=async()=>{const sumber=$('#sumber').value.trim();if(!sumber)return toast('Isi link YouTube atau pilih file video',true);const d={sumber,jumlah:+$('#pilDurasi .aktif').dataset.v,durasi:+$('#pilDurasi .aktif').dataset.v,layout:$('#pilLayout .aktif').dataset.v,face_mode:$('#pilFace .aktif').dataset.v,face_x:+$('#gFaceX').value/100,momen:$('#pilMomen .aktif').dataset.v};if($('#arahan').value)d.arahan=$('#arahan').value;if(d.layout==='gamer'&&facecamPath)d.facecam=facecamPath;try{await api('/api/klip',d);toast('Menganalisis video…');}catch(e){toast(e.message,true);}};
 
 // ---- MOTION ----
 $('#pilIsi').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilIsi button').forEach(x=>x.classList.toggle('aktif',x===b));$('#isiTopik').hidden=b.dataset.v!=='topik';$('#isiNaskah').hidden=b.dataset.v!=='naskah';};

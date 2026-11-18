@@ -400,6 +400,8 @@ def mulai_klip(d: dict) -> dict:
         cmd += ["--face-mode", d["face_mode"]]
     if d.get("face_x") is not None:
         cmd += ["--face-x", str(d["face_x"])]
+    if d.get("momen"):
+        cmd += ["--momen", d["momen"]]
     cmd.append("--hanya-analisis")
     if d.get("arahan"):
         cmd += ["--arahan", d["arahan"]]

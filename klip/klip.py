@@ -223,8 +223,35 @@ def kalimat_utuh(kal: list[Kalimat]) -> list[Kalimat]:
 
 
 def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
-                durasi: float, jumlah: int, panjang_video: float, arahan: str = "") -> list[Klip]:
-    """Momen = rangkaian kalimat utuh, diberi skor, judul, dan alasan (sama dengan aplikasi Klip HP)."""
+                durasi: float, jumlah: int, panjang_video: float, arahan: str = "",
+                mode: str = "umum", sinyal: dict | None = None) -> list[Klip]:
+    """Momen = rangkaian kalimat utuh, diberi skor, judul, dan alasan (sama dengan aplikasi Klip HP).
+
+    mode "gamer" → pakai preset momen_gamer.py: teriakan (lonjakan energi), reaksi facecam,
+    aksi gameplay, dan kamus kata gaming. Sinyal ekstra dikirim lewat `sinyal`.
+    """
+    if mode == "gamer":
+        import momen_gamer
+        semua = momen_gamer.skor_momen(kalimat_utuh(kal), energi,
+                                       (sinyal or {}).get("lonjak", np.zeros(1)),
+                                       (sinyal or {}).get("reaksi", np.zeros(1)),
+                                       (sinyal or {}).get("aksi", np.zeros(1)),
+                                       durasi, arahan)
+        if not semua:
+            return []
+        semua.sort(key=lambda c: c["skor"], reverse=True)
+        terpilih: list[Klip] = []
+        for c in semua:
+            if all(c["selesai"] <= t.mulai or c["mulai"] >= t.selesai for t in terpilih):
+                terpilih.append(Klip(c["mulai"], c["selesai"], c["teks"], c["skor"], c["alasan"]))
+            if len(terpilih) == jumlah:
+                break
+        if terpilih:
+            top, bawah = terpilih[0].skor, terpilih[-1].skor
+            for c in terpilih:
+                c.skor = int(min(max(60 + 39 * (c.skor - bawah) / max(top - bawah, 1), 1), 99))
+        return sorted(terpilih, key=lambda c: c.mulai)
+
     kata_arahan = {w for w in re.findall(r"\w+", arahan.lower()) if len(w) > 3}
     if not kal:
         # tanpa ucapan: pakai energi audio saja
@@ -1216,17 +1243,26 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
                     f"pad=392:392:6:6:color=0x22D3EE[kecil]")
         graf.append("[utama][kecil]overlay=x=W-w-60:y=220[vid]")
     elif layout == "gamer":
-        # Kanvas 1080x1920: facecam 720x720 tengah atas, gameplay 4:3 1080x840 di bawah
-        g["posisi_y"] = 50   # subtitle tepat tengah frame (MarginV 960)
-        g.setdefault("preset", "terbaca")  # font & gaya dari preset repo
-        g["ukuran"] = "kecil"
+        # Kanvas 1080x1920: facecam kotak di tengah atas, gameplay kotak besar di bawah (tanpa subtitle)
+        fc_size = int(g.get("fc_size", 600))     # sisi facecam (bujur)
+        game_h = int(g.get("game_h", 1080))      # tinggi gameplay di canvas
+        zoom = float(g.get("game_zoom", 1.0))    # >1 = perbesar gameplay (potong makin banyak kiri-kanan)
+        g["subtitle"] = False                    # layout gamer: tanpa subtitle
+        g["banner"] = False
+        g["judul_buka"] = False
+        g["akun"] = ""
+        g["watermark"] = ""
 
         if g.get("facecam"):
             # Dua file: facecam terpisah + gameplay
-            graf.append("[FACECAM:v]scale=720:720:flags=lanczos,setsar=1[fc]")
+            # Facecam: crop kotak dari tengah (bukan diregangkan), lalu skala
+            graf.append(f"[FACECAM:v]crop=min(iw\\,ih):min(ih\\,iw):(iw-out_w)/2:(ih-out_h)/2,"
+                        f"scale={fc_size}:{fc_size}:flags=lanczos,setsar=1[fc]")
 
-            # Gameplay: tetap landscape, crop 4:3 dari tengah input 0
-            graf.append("[0:v]crop=min(iw\\,ih*4/3):min(ih\\,iw*3/4),scale=1080:840:flags=lanczos,setsar=1[game_scaled]")
+            # Gameplay: skala memperbesar (tinggi penuh tetap utuh), lalu potong kiri-kanan
+            graf.append(f"[0:v]scale=-1:{int(game_h * zoom)}:flags=lanczos,"
+                        f"crop=w='min(iw\\,1080)':h='min(ih\\,{int(game_h * zoom)})':x='(iw-min(iw\\,1080))/2':y=0,"
+                        f"scale=1080:{game_h}:flags=lanczos,setsar=1[game_scaled]")
         else:
             # Satu file: split input 0 -> facecam (strip wajah) + gameplay
             graf.append("[0:v]split=2[va][vb]")
@@ -1242,16 +1278,19 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
             else:
                 x_src, cw_src = 0, w
             cw_src = min(cw_src, w - x_src) // 2 * 2
-            graf.append(f"[va]crop={cw_src}:{ch_src}:{x_src}:{y_src},scale=720:720:flags=lanczos,setsar=1[fc]")
+            graf.append(f"[va]crop={cw_src}:{ch_src}:{x_src}:{y_src},"
+                        f"scale={fc_size}:{fc_size}:flags=lanczos,setsar=1[fc]")
 
-            # Gameplay: tetap landscape, crop 4:3
-            graf.append("[vb]crop=min(iw\\,ih*4/3):min(ih\\,iw*3/4),scale=1080:840:flags=lanczos,setsar=1[game_scaled]")
+            # Gameplay: skala memperbesar (tinggi penuh tetap utuh), lalu potong kiri-kanan
+            graf.append(f"[vb]scale=-1:{int(game_h * zoom)}:flags=lanczos,"
+                        f"crop=w='min(iw\\,1080)':h='min(ih\\,{int(game_h * zoom)})':x='(iw-min(iw\\,1080))/2':y=0,"
+                        f"scale=1080:{game_h}:flags=lanczos,setsar=1[game_scaled]")
 
-        # Kanvas hitam, facecam di tengah atas (y=0), gameplay di bawah (y=720)
-        fc_x = (1080 - 720) // 2
+        # Kanvas hitam, facecam di tengah atas, gameplay di bawahnya
+        fc_x = (1080 - fc_size) // 2
         graf.append(f"color=c=black:s=1080x1920:d={durasi:.2f}[bg]")
         graf.append(f"[bg][fc]overlay=x={fc_x}:y=0[t1]")
-        graf.append("[t1][game_scaled]overlay=x=0:y=720[vid]")
+        graf.append(f"[t1][game_scaled]overlay=x=0:y={fc_size}[vid]")
 
     elif rasio == "9:16":
         if fokus == "auto":
@@ -1524,8 +1563,30 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
                 log(f"Momen “{k.judul}” terlalu pendek → diperpanjang ke {k.selesai - k.mulai:.0f} dtk.")
         log(f"Memakai {len(klips)} momen dari {sumber_ai}.")
     else:
-        log("Mencari momen terbaik (heatmap + energi suara + kepadatan kata + kata hook)…")
-        klips = pilih_momen(kal, energi_audio(file), heatmap, a.durasi, a.jumlah, panjang, a.arahan)
+        mode_momen = getattr(a, "momen", "") or ("gamer" if a.layout == "gamer" else "umum")
+        if mode_momen == "gamer":
+            import momen_gamer
+            log("Mode momen GAMER: cari teriakan, reaksi wajah, aksi game, dan kata gaming…")
+            en = energi_audio(file)
+            sinyal = {"lonjak": momen_gamer.normalisasi(momen_gamer.lonjakan(en)),
+                      "reaksi": np.zeros(1), "aksi": np.zeros(1)}
+            # reaksi facecam: motion frame facecam (bisa 2 file: gameplay + facecam)
+            fc = getattr(a, "facecam", None)
+            if fc and Path(fc).exists():
+                log("   Menganalisis reaksi facecam (motion frame)…")
+                m = momen_gamer.motion_per_detik(Path(fc))
+                sinyal["reaksi"] = momen_gamer.normalisasi(m)
+                log(f"   Reaksi facecam: {len(m)} detik terbaca.")
+            # aksi gameplay: motion frame gameplay (resolusi kecil, murah)
+            log("   Menganalisis aksi gameplay (motion frame)…")
+            mg = momen_gamer.motion_per_detik(file)
+            sinyal["aksi"] = momen_gamer.normalisasi(mg)
+            log(f"   Aksi gameplay: {len(mg)} detik terbaca.")
+            klips = pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
+                                mode="gamer", sinyal=sinyal)
+        else:
+            log("Mencari momen terbaik (heatmap + energi suara + kepadatan kata + kata hook)…")
+            klips = pilih_momen(kal, energi_audio(file), heatmap, a.durasi, a.jumlah, panjang, a.arahan)
         hooks = [None] * len(klips)
         sumber_ai = "lokal"
 
@@ -1611,6 +1672,8 @@ def main() -> None:
     p.add_argument("--model", default="small", help="model whisper: tiny/base/small/medium/large-v3")
     p.add_argument("--beam", type=int, default=5, help="beam size whisper: 1=greedy (cepat, RAM kecil), 5=akurasi (lambat, RAM besar)")
     p.add_argument("--potong", type=int, default=0, help="pecah audio jadi chunk N detik saat transkripsi (0=off). Wajib untuk model besar di RAM kecil")
+    p.add_argument("--momen", choices=["umum", "gamer"], default="",
+                   help="cara cari momen: umum (default) atau gamer (teriakan + reaksi wajah + aksi game). Kosong = ikut layout")
     p.add_argument("--bahasa", default="id", help="kode bahasa, mis. id atau en; 'auto' = deteksi otomatis (default id)")
     p.add_argument("--keluar", default="hasil-klip", help="folder hasil")
     p.add_argument("--tanpa-wajah", action="store_true", help="bingkai tengah, jangan ikuti wajah")
