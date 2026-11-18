@@ -198,8 +198,11 @@ uv run klip/klip.py -h
 | `--watermark` | Teks di tengah klip (±50% transparan) | `--watermark "@akunmu"` |
 | `--gaya` | JSON gaya render | `--gaya '{"subtitle":false}'` |
 | `--tanpa-wajah` | Bingkai tengah, tidak ikuti wajah | `--tanpa-wajah` |
-| `--layout gamer` | **Mode 2 kamera gamer**: game di atas + kamera wajah di bawah | `--layout gamer --facecam kamera.mp4` |
+| `--layout gamer` | **Mode 2 kamera gamer**: facecam kotak di tengah atas + gameplay di bawah | `--layout gamer --facecam kamera.mp4` |
 | `--facecam FILE` | File video kamera untuk mode gamer (pakai dengan `--layout gamer`) | `--facecam kamera.mp4` |
+| `--momen` | Preset cari momen: `umum` atau `gamer` (kosong = ikut layout) | `--momen gamer` |
+| `--beam N` | Strategi decode Whisper: `1` greedy (cepat, hemat RAM) … `5` beam search (default) | `--beam 1` |
+| `--potong N` | Pecah audio jadi chunk N detik saat transkripsi (0 = off) | `--potong 120` |
 | `--tanpa-subtitle` | Klip tanpa subtitle | `--tanpa-subtitle` |
 | `--uji-ai` | Cek sambungan AI | `--uji-ai gemini` |
 
@@ -241,19 +244,36 @@ Kalau mau bingkai ikut wajah + subtitle karaoke, pakai `klip.py` (lihat bagian 4
 
 ---
 
-## 6b. Mode Gamer (2 Kamera: Game di Atas + Kamera di Bawah)
+## 6b. Mode Gamer (Facecam Atas + Gameplay Bawah)
 
-Mode ini untuk konten gaming: video gameplay di atas (layar penuh 9:16), dan facecam kamera orang di bawah tengah dengan border halus. Butuh **dua file video terpisah**:
+Mode ini untuk konten gaming: **facecam kotak di tengah atas**, **gameplay landscape di bawah**, canvas hitam 1080×1920. Butuh **dua file video terpisah**:
 
 ```bash
 uv run klip/klip.py gameplay.mp4 --layout gamer --facecam kamera.mp4 \
-  --jumlah 3 --durasi 30 --keluar hasil-gamer
+  --momen gamer --jumlah 3 --durasi 30 --keluar hasil-gamer
 ```
 
-- `gameplay.mp4` — video game, menjadi latar layar penuh di atas (~66% tinggi)
-- `kamera.mp4` — video kamera, jadi overlay di bawah tengah (540×540, border cyan)
-- Deteksi wajah tetap aktif di facecam, jadi bingkai ikut gerak pembicara
-- Subtitle karaoke, watermark, progress bar tetap bisa dipakai
+- `gameplay.mp4` — video game, jadi gameplay di bawah
+- `kamera.mp4` — video kamera orang, jadi facecam di atas tengah
+- Facecam **di-crop kotak dari tengah** (tidak diregangkan) lalu diskalakan ke 600×600
+- Gameplay **tinggi penuh tetap utuh**, dilebihkan zoom lalu **dipotong kiri-kanan** dari tengah, jadi 1080×1080
+- **Tanpa subtitle** (mode gamer mematikan subtitle otomatis)
+- Tanpa judul/banner/watermark
+
+### Menyesuaikan ukuran & zoom
+
+Semua lewat `--gaya` (JSON):
+
+```bash
+uv run klip/klip.py gameplay.mp4 --layout gamer --facecam kamera.mp4 \
+  --gaya '{"fc_size": 600, "game_h": 1080, "game_zoom": 1.15}'
+```
+
+| Kunci | Default | Arti |
+|-------|---------|------|
+| `fc_size` | `600` | sisi facecam (bujur). Makin besar, makin memenuhi bagian atas |
+| `game_h` | `1080` | tinggi gameplay di canvas. `1080` = 1:1 (potong kiri-kanan banyak) |
+| `game_zoom` | `1.0` | >1 memperbesar gameplay (potong kiri-kanan makin banyak, zoom ke tengah) |
 
 Di `./mulai` menu 1, setelah pilih video, akan ditanya:
 
@@ -262,10 +282,59 @@ Di `./mulai` menu 1, setelah pilih video, akan ditanya:
     1 tunggal (layar penuh)
     2 facecam (wajah atas)
     3 pip (wajah kecil kanan bawah)
-    4 gamer (game atas + kamera bawah)
+    4 gamer (wajah atas + gameplay bawah)
+
+  Preset cari momen
+    1 gamer (teriakan + reaksi wajah + aksi game)
+    2 umum (hook + bicara padat)
 ```
 
 Pilih **4**, lalu ketik nama file facecam-nya.
+
+---
+
+## 6c. Preset Cari Momen
+
+`--momen` menentukan **algoritma pemilihan momen**. Dua mode:
+
+| Mode | Sinyal yang dipakai | Cocok untuk |
+|------|--------------------|-------------|
+| `umum` | hook kata pemikat, kata tanya, pembuka kuat, kepadatan bicara, rata-rata energi suara, heatmap YouTube | podcast, wawancara, edukasi, vlog |
+| `gamer` | **puncak** energi suara (teriakan), lonjakan vs baseline 5 detik, **reaksi facecam** (motion frame), **aksi gameplay** (motion frame), kamus kata + interjeksi gaming | konten gaming, stream highlight |
+
+```bash
+# paksa mode gamer
+uv run klip/klip.py gameplay.mp4 --layout gamer --facecam kamera.mp4 --momen gamer
+
+# paksa mode umum walau layout gamer
+uv run klip/klip.py gameplay.mp4 --layout gamer --facecam kamera.mp4 --momen umum
+```
+
+Kalau `--momen` dikosongkan: layout `gamer` otomatis pakai mode `gamer`, layout lain pakai mode `umum`.
+
+**Bedanya nyata** — video gaming 36 menit, momen ke-2 di mode umum adalah *"Tadinya mau ke T.C.T, pisang, tapi ternyata udah tutup, kenapa?"* (cerita), sedangkan mode gamer mengambil *"gila gue merintis anjir parah gue gak tau..."* (teriakan + reaksi wajah + aksi game).
+
+Alasan tiap momen otomatis terisi di `klip.json` (`teriakan · reaksi wajah · aksi game · kata gaming: gila, anjir, parah`), jadi kelihatan kenapa suatu klip dipilih.
+
+> Mode gamer menambah satu kali pass ffmpeg untuk menghitung motion frame (gameplay + facecam, 4 fps, 64×64 abu-abu). Untuk video 36 menit ini sekitar 2–3 menit tambahan.
+
+---
+
+## 6d. Whisper di RAM Kecil (`--beam` & `--potong`)
+
+Server kecil (RAM 3–4 GB) sering swap-thrash kalau pakai model besar. Dua flag ini yang azeite:
+
+| Flag | Arti |
+|------|------|
+| `--beam N` | Strategi decode Whisper: `1` = greedy (cepat, hemat RAM), `5` = beam search (akurasi, boros). Default `5` |
+| `--potong N` | Pecah audio jadi chunk N detik saat transkripsi (0 = off). Timestamp kata tetap dikembalikan ke waktu asli video |
+
+```bash
+# video panjang, RAM 4 GB → small + greedy + chunk 2 menit
+uv run klip/klip.py video.mp4 --model small --beam 1 --potong 120 --layout gamer --facecam kamera.mp4
+```
+
+**Kenapa `medium` mentahan-nahan di RAM 3,6 GB** (terukur): model int8 ≈ 1,5 GB + workspace CTranslate2 → sistem swap-thrash, CPU efektif turun ke 7–12%, PSI memory `full` > 45%. `small` + `--potong` → CPU 166%, PSI 0,03, 19 chunk 120 detik selesai ~12 menit. Fix sebenarnya: RAM ≥ 8 GB.
 
 ---
 

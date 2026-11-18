@@ -399,9 +399,10 @@ def alur_klip(kering: bool = False) -> None:
     print()
     wm = tanya("Watermark tengah ('-' = tanpa)", "isanovski Studio")
     print()
-    lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "facecam (wajah atas)", "pip (wajah kecil kanan bawah)", "gamer (game atas + kamera bawah)"], 0)
+    lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "facecam (wajah atas)", "pip (wajah kecil kanan bawah)", "gamer (wajah atas + gameplay bawah)"], 0)
     layout = ["tunggal", "facecam", "pip", "gamer"][lay_ke]
     facecam = ""
+    momen = ""
     if layout == "gamer":
         print()
         info("File facecam = video kamera orang (pisah dari game).")
@@ -409,6 +410,9 @@ def alur_klip(kering: bool = False) -> None:
         if facecam and not Path(facecam).exists() and not Path((Path.cwd() / facecam)).exists():
             gagal(f"File facecam tidak ditemukan: {facecam}")
             facecam = ""
+        print()
+        mom_ke = pilih("Preset cari momen", ["gamer (teriakan + reaksi wajah + aksi game)", "umum (hook + bicara padat)"], 0)
+        momen = ["gamer", "umum"][mom_ke]
     print()
     fm_ke = pilih("Mode bingkai wajah", ["auto (ikuti wajah bicara)", "manual (tentukan posisi)", "fit (layar penuh, jangan potong)"], 0)
     face_mode = ["auto", "manual", "fit"][fm_ke]
@@ -449,6 +453,8 @@ def alur_klip(kering: bool = False) -> None:
         cmd += ["--watermark", wm]
     if facecam:
         cmd += ["--facecam", facecam]
+    if momen:
+        cmd += ["--momen", momen]
     kode = jalan(cmd, label="menganalisis & merender", kering=kering)
     if kode != 0:
         print()

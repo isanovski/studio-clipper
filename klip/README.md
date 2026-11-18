@@ -53,8 +53,12 @@ Pengguna Claude Pro + Claude Code cukup mengetik: *"jalankan klip.py untuk video
 | `--bahasa id` | paksa bahasa transkrip |
 | `--warna "#00E5FF"` | warna sorotan subtitle |
 | `--tanpa-wajah` | bingkai di tengah, tidak mengikuti wajah |
-| `--layout gamer` | game di atas + kamera wajah di bawah (mode 2 kamera gamer) |
+| `--layout gamer` | facecam kotak di tengah atas + gameplay di bawah (mode 2 kamera gamer) |
 | `--facecam FILE` | file video kamera untuk layout gamer (pakai bersama `--layout gamer`) |
+| `--momen gamer` | preset cari momen khusus gaming: teriakan + reaksi wajah + aksi game + kata gaming |
+| `--momen umum` | preset cari momen umum: hook kata pemikat + bicara padat (default, ikut layout kalau kosong) |
+| `--beam 1` | decode Whisper greedy (cepat, hemat RAM). Default `5` = beam search (akurasi) |
+| `--potong 120` | pecah audio jadi chunk 120 detik saat transkripsi (wajib untuk model besar di RAM kecil) |
 | `--tanpa-subtitle` | klip tanpa subtitle |
 | `--keluar folderku` | folder hasil |
 
@@ -91,9 +95,18 @@ uv run klip.py video.mp4 --hanya-analisis --jumlah 10 --rentang 10:00-25:30
 uv run klip.py --render --keluar hasil-klip --pilih 1,3 --gaya '{"rasio":"1:1","latar":"blur","banner":true,"awalan":"PART 1: ","gaya_sub":"kotak","musik":"musik.mp3","volume_musik":15,"suara":125}'
 ```
 Kunci `--gaya`: `rasio` (9:16, 1:1, 4:3, 16:9) · `latar` (hitam, blur) · `fokus` (auto, kiri, tengah, kanan) · `layout` (tunggal, facecam, pip, gamer) ·
+`fc_size` (sisi facecam gamer, default 600) · `game_h` (tinggi gameplay gamer, default 1080) · `game_zoom` (perbesar gameplay gamer, default 1.0) ·
 `banner`, `awalan`, `akhiran` · `subtitle`, `gaya_sub` (sorot, kotak, garis), `font`, `ukuran` (kecil, sedang, besar), `huruf` (kapital, judul, kecil),
 `posisi_y` (persen dari atas), `warna` · `musik`, `volume_musik`, `sfx`, `suara` (persen). Subtitle sendiri: `--subtitle-file video.srt`.
 Emoji di banner/subtitle dibuang otomatis (libass tidak bisa menggambar emoji berwarna).
+
+## Mode gamer (2 kamera)
+```bash
+uv run klip.py gameplay.mp4 --layout gamer --facecam kamera.mp4 --momen gamer --jumlah 3 --durasi 30
+```
+Kanvas 1080×1920 hitam: **facecam kotak 600×600 di tengah atas** (di-crop, tidak diregangkan) + **gameplay 1080×1080 di bawah**
+(tinggi penuh, dilebihkan zoom lalu dipotong kiri-kanan). Tanpa subtitle, judul, dan watermark.
+Naikkan `game_zoom` di `--gaya` kalau gameplay masih kurang besar.
 
 ## Lisensi
 Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id.
