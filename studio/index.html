@@ -476,7 +476,10 @@ select.input option{background:var(--panel);color:var(--teks)}
               </div></div>
             <div class="bidang" id="bLatar"><label>Latar bar</label><div class="pil" id="pLatar"><button data-v="hitam" class="aktif">Hitam polos</button><button data-v="blur">Video diburamkan</button></div></div>
             <div class="bidang"><label>Titik fokus horizontal</label><div class="pil" id="pFokus"><button data-v="auto" class="aktif">Otomatis (wajah)</button><button data-v="kiri">Kiri</button><button data-v="tengah">Tengah</button><button data-v="kanan">Kanan</button></div></div>
-            <div class="bidang"><label>Layout streamer / facecam</label><div class="pil" id="pLayout"><button data-v="tunggal" class="aktif">Satu video</button><button data-v="facecam">Wajah atas · layar bawah</button><button data-v="pip">Wajah di pojok (PiP)</button><button data-v="split">Split podcast (2 orang)</button></div></div>
+            <div class="bidang"><label>Layout streamer / facecam</label><div class="pil" id="pLayout"><button data-v="tunggal" class="aktif">Satu video</button><button data-v="facecam">Wajah atas · layar bawah</button><button data-v="pip">Wajah di pojok (PiP)</button><button data-v="split">Split podcast (2 orang)</button><button data-v="gamer">Gamer (game atas + kamera bawah)</button></div></div>
+            <div class="bidang" id="bFacecamPos" style="display:none"><label>Posisi facecam</label><div class="pil" id="pFacecamPos"><button data-v="kanan-bawah" class="aktif">Kanan bawah</button><button data-v="kiri-bawah">Kiri bawah</button><button data-v="tengah-bawah">Tengah bawah</button><button data-v="kanan-atas">Kanan atas</button><button data-v="kiri-atas">Kiri atas</button><button data-v="tengah-atas">Tengah atas</button></div></div>
+            <div class="bidang" id="bFacecamSize" style="display:none"><label>Ukuran facecam</label><div class="pil" id="pFacecamSize"><button data-v="kecil">Kecil (360)</button><button data-v="sedang" class="aktif">Sedang (540)</button><button data-v="besar">Besar (720)</button></div></div>
+            <div class="bidang" id="bFacecamFile" style="display:none"><label>File facecam kamera <em>pisah dari video game</em></label><div class="unggah-mini"><button class="tombol kedua kecil" data-aset="facecam">Pilih file facecam</button><span id="nFacecam">belum ada</span></div></div>
 
             <div class="sub-bagian">
               <label class="saklar" style="border:none;padding-top:0">Banner judul hook<input type="checkbox" id="gBanner" checked></label>
@@ -1273,7 +1276,7 @@ $('#gridPreset').innerHTML = Object.entries(PRESET_G).map(([id, p]) => {
 }).join('');
 $('#gridPreset').onclick = (e) => { const b = e.target.closest('[data-preset]'); if (b) pilihPreset(b.dataset.preset); };
 function pilG(id, kunci) { pil(id, (v) => { G[kunci] = isNaN(+v) || kunci === 'font' ? v : +v; segarkanG(); }); }
-['#pLatar:latar', '#pFokus:fokus', '#pLayout:layout', '#pJudul:gaya_judul', '#pFont:font', '#pUkuran:ukuran', '#pHuruf:huruf', '#pSuara:suara']
+['#pLatar:latar', '#pFokus:fokus', '#pLayout:layout', '#pJudul:gaya_judul', '#pFont:font', '#pUkuran:ukuran', '#pHuruf:huruf', '#pSuara:suara', '#pFacecamPos:facecam_pos', '#pFacecamSize:facecam_size']
   .forEach((x) => { const [id, k] = x.split(':'); pilG(id, k); });
 $('#tRasio').onclick = (e) => { const b = e.target.closest('.tile'); if (!b) return; $$('#tRasio .tile').forEach((t) => t.classList.toggle('aktif', t === b)); G.rasio = b.dataset.v; segarkanG(); };
 $('#gBanner').onchange = (e) => { G.banner = e.target.checked; segarkanG(); };
@@ -1297,16 +1300,24 @@ $('#PIXABAY_API_KEY').onchange = async (e) => { if (e.target.value) { await api(
 $('#gVolMusik').oninput = (e) => { G.volume_musik = +e.target.value; segarkanG(); };
 let jenisAset = '';
 $$('[data-aset]').forEach((b) => b.onclick = () => { jenisAset = b.dataset.aset; $('#fileAset').accept = jenisAset === 'broll' ? 'video/*,image/*' : 'audio/*'; $('#fileAset').click(); });
+$('#bFacecamFile button[data-aset="facecam"]').onclick = () => { jenisAset = 'facecam'; $('#fileAset').accept = 'video/*'; $('#fileAset').click(); };
 $('#fileAset').onchange = async (e) => {
   const f = e.target.files[0]; if (!f) return;
   const r = await fetch('/api/unggah', {method: 'POST', headers: {'X-Nama-File': f.name, 'X-Jenis': 'aset'}, body: f});
   const j = await r.json(); const nm = j.jalur.split(/[\\/]/).pop();
+  if (jenisAset === 'facecam') { G.facecam = nm; $('#nFacecam').textContent = f.name; e.target.value = ''; jenisAset = ''; toast('Facecam tersimpan: ' + f.name); return; }
   if (jenisAset === 'broll') { G.broll_file = [...(G.broll_file || []), nm]; $('#nBroll').textContent = G.broll_file.join(', '); e.target.value = ''; toast('Tersimpan: ' + f.name); return; }
   G[jenisAset] = nm;
   $(jenisAset === 'musik' ? '#nMusik' : '#nSfx').textContent = f.name; e.target.value = ''; toast('Tersimpan: ' + f.name);
 };
 function segarkanG() {
   $('#bLatar').style.display = G.rasio === '9:16' && G.layout === 'tunggal' ? 'none' : '';
+  const isGamer = G.layout === 'gamer';
+  $('#bFacecamPos').style.display = isGamer ? '' : 'none';
+  $('#bFacecamSize').style.display = isGamer ? '' : 'none';
+  $('#bFacecamFile').style.display = isGamer ? '' : 'none';
+  if (!G.facecam_pos) G.facecam_pos = 'kanan-bawah';
+  if (!G.facecam_size) G.facecam_size = 'sedang';
   $('#nPosY').textContent = G.posisi_y + '% dari atas'; $('#nVolMusik').textContent = G.volume_musik + '%'; $('#nSuara').textContent = G.suara + '%';
   gambarKanvas();
 }
@@ -1326,6 +1337,9 @@ function terapkanGaya(g) {
   $('#gBanner').checked = G.banner; $('#gSub').checked = G.subtitle; $('#gAwalan').value = G.awalan || ''; $('#gAkhiran').value = G.akhiran || '';
   $('#gPosY').value = G.posisi_y; $('#gWarna').value = G.warna; $('#gVolMusik').value = G.volume_musik;
   $('#nMusik').textContent = G.musik || 'tanpa musik'; $('#nSfx').textContent = G.sfx || 'tanpa SFX';
+  if (G.facecam) { $('#nFacecam').textContent = G.facecam.split(/[\/]/).pop(); }
+  set('#pFacecamPos', G.facecam_pos || 'kanan-bawah');
+  set('#pFacecamSize', G.facecam_size || 'sedang');
   segarkanG();
 }
 const RASIO_G = {'9:16': 9 / 16, '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9};
