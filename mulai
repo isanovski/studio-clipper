@@ -398,6 +398,17 @@ def alur_klip(kering: bool = False) -> None:
     arahan = tanya("Cari momen tertentu? (kosong = bebas)", "")
     print()
     wm = tanya("Watermark tengah ('-' = tanpa)", "isanovski Studio")
+    print()
+    lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "facecam (wajah atas)", "pip (wajah kecil kanan bawah)", "gamer (game atas + kamera bawah)"], 0)
+    layout = ["tunggal", "facecam", "pip", "gamer"][lay_ke]
+    facecam = ""
+    if layout == "gamer":
+        print()
+        info("File facecam = video kamera orang (pisah dari game).")
+        facecam = bersihkan_jalur(tanya("File facecam", ""))
+        if facecam and not Path(facecam).exists() and not Path((Path.cwd() / facecam)).exists():
+            gagal(f"File facecam tidak ditemukan: {facecam}")
+            facecam = ""
 
     if sumber.startswith("http"):
         slug = "youtube"
@@ -415,11 +426,14 @@ def alur_klip(kering: bool = False) -> None:
 
     cmd = [uv_cmd(), "run", "klip/klip.py", sumber,
            "--jumlah", str(jumlah), "--durasi", str(durasi),
-           "--keluar", str(tujuan), "--ai", ai]
+           "--keluar", str(tujuan), "--ai", ai,
+           "--layout", layout]
     if arahan:
         cmd += ["--arahan", arahan]
     if wm and wm != "-":
         cmd += ["--watermark", wm]
+    if facecam:
+        cmd += ["--facecam", facecam]
     kode = jalan(cmd, label="menganalisis & merender", kering=kering)
     if kode != 0:
         print()

@@ -51,6 +51,8 @@ Pengguna Claude Pro + Claude Code cukup mengetik: *"jalankan klip.py untuk video
 | `--bahasa id` | paksa bahasa transkrip |
 | `--warna "#00E5FF"` | warna sorotan subtitle |
 | `--tanpa-wajah` | bingkai di tengah, tidak mengikuti wajah |
+| `--layout gamer` | game di atas + kamera wajah di bawah (mode 2 kamera gamer) |
+| `--facecam FILE` | file video kamera untuk layout gamer (pakai bersama `--layout gamer`) |
 | `--tanpa-subtitle` | klip tanpa subtitle |
 | `--keluar folderku` | folder hasil |
 
@@ -86,7 +88,7 @@ uv run klip.py video.mp4 --hanya-analisis --jumlah 10 --rentang 10:00-25:30
 ```bash
 uv run klip.py --render --keluar hasil-klip --pilih 1,3 --gaya '{"rasio":"1:1","latar":"blur","banner":true,"awalan":"PART 1: ","gaya_sub":"kotak","musik":"musik.mp3","volume_musik":15,"suara":125}'
 ```
-Kunci `--gaya`: `rasio` (9:16, 1:1, 4:3, 16:9) · `latar` (hitam, blur) · `fokus` (auto, kiri, tengah, kanan) · `layout` (tunggal, facecam, pip) ·
+Kunci `--gaya`: `rasio` (9:16, 1:1, 4:3, 16:9) · `latar` (hitam, blur) · `fokus` (auto, kiri, tengah, kanan) · `layout` (tunggal, facecam, pip, gamer) ·
 `banner`, `awalan`, `akhiran` · `subtitle`, `gaya_sub` (sorot, kotak, garis), `font`, `ukuran` (kecil, sedang, besar), `huruf` (kapital, judul, kecil),
 `posisi_y` (persen dari atas), `warna` · `musik`, `volume_musik`, `sfx`, `suara` (persen). Subtitle sendiri: `--subtitle-file video.srt`.
 Emoji di banner/subtitle dibuang otomatis (libass tidak bisa menggambar emoji berwarna).

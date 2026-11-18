@@ -247,6 +247,7 @@ Kalau tidak mau pakai menu:
 | Tujuan | Perintah |
 |---|---|
 | analisis + render | `uv run klip/klip.py "v.mp4" --jumlah 3 --durasi 30 --keluar hasil-x` |
+| mode gamer (2 kamera) | `... --layout gamer --facecam kamera.mp4` |
 | ganti watermark | `... --watermark "@akunmu"` (kosongkan `""` = tanpa watermark) |
 | pakai Gemini | `... --ai gemini` |
 | analisis saja | `uv run klip/klip.py "v.mp4" --hanya-analisis --keluar hasil-x` |

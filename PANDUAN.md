@@ -155,6 +155,8 @@ uv run klip/klip.py -h
 | `--watermark` | Teks di tengah klip (±50% transparan) | `--watermark "@akunmu"` |
 | `--gaya` | JSON gaya render | `--gaya '{"subtitle":false}'` |
 | `--tanpa-wajah` | Bingkai tengah, tidak ikuti wajah | `--tanpa-wajah` |
+| `--layout gamer` | **Mode 2 kamera gamer**: game di atas + kamera wajah di bawah | `--layout gamer --facecam kamera.mp4` |
+| `--facecam FILE` | File video kamera untuk mode gamer (pakai dengan `--layout gamer`) | `--facecam kamera.mp4` |
 | `--tanpa-subtitle` | Klip tanpa subtitle | `--tanpa-subtitle` |
 | `--uji-ai` | Cek sambungan AI | `--uji-ai gemini` |
 
@@ -188,6 +190,34 @@ ffmpeg -i video.mp4 -ss 00:10:00 -to 00:10:30 \
 ```
 
 Kalau mau bingkai ikut wajah + subtitle karaoke, pakai `klip.py` (lihat bagian 4).
+
+---
+
+## 6b. Mode Gamer (2 Kamera: Game di Atas + Kamera di Bawah)
+
+Mode ini untuk konten gaming: video gameplay di atas (layar penuh 9:16), dan facecam kamera orang di bawah tengah dengan border halus. Butuh **dua file video terpisah**:
+
+```bash
+uv run klip/klip.py gameplay.mp4 --layout gamer --facecam kamera.mp4 \
+  --jumlah 3 --durasi 30 --keluar hasil-gamer
+```
+
+- `gameplay.mp4` — video game, menjadi latar layar penuh di atas (~66% tinggi)
+- `kamera.mp4` — video kamera, jadi overlay di bawah tengah (540×540, border cyan)
+- Deteksi wajah tetap aktif di facecam, jadi bingkai ikut gerak pembicara
+- Subtitle karaoke, watermark, progress bar tetap bisa dipakai
+
+Di `./mulai` menu 1, setelah pilih video, akan ditanya:
+
+```
+  Tampilan klip
+    1 tunggal (layar penuh)
+    2 facecam (wajah atas)
+    3 pip (wajah kecil kanan bawah)
+    4 gamer (game atas + kamera bawah)
+```
+
+Pilih **4**, lalu ketik nama file facecam-nya.
 
 ---
 

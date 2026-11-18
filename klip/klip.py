@@ -1150,6 +1150,8 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
     durasi = klip.selesai - klip.mulai
     graf = []
     bar_atas = 0
+    masukan_extra: list[str] = []
+    n_in = 1  # input 0 = video sumber
 
     if layout == "split" and dua:
         # dua pembicara ditumpuk: kiri di atas, kanan di bawah, garis pemisah tipis
@@ -1173,6 +1175,31 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         graf.append(f"[vb]{potong(w, h, 1.0, wajah['x'], wajah['y'], zoom)},scale=380:380,setsar=1,"
                     f"pad=392:392:6:6:color=0x22D3EE[kecil]")
         graf.append("[utama][kecil]overlay=x=W-w-60:y=220[vid]")
+    elif layout == "gamer" and g.get("facecam"):
+        # Game di atas, facecam overlay di bawah tengah (mode 2 kamera gamer)
+        fc_path = Path(g["facecam"]).resolve()
+        fc_dur, fw, fh = info_video(fc_path)
+        game_h = int(1920 * 0.66) // 2 * 2  # game ambil ~66% atas (genap untuk libx264)
+        fc_wajah = info_wajah(fc_path, klip.mulai, klip.selesai, fw, fh)
+
+        # Game: crop 9:16 tengah, scale ke tinggi game_h, lalu pad ke kanvas 1080x1920 penuh
+        graf.append(f"[0:v]{potong(w, h, 9 / 16, 0.5, 0.5)},scale=1080:{game_h}:flags=lanczos,setsar=1[game_raw]")
+        graf.append(f"[game_raw]pad=1080:1920:0:0:color=black[game]")
+
+        # Facecam: deteksi wajah, crop persegi di sekitar wajah, perbesar, scale ke 540x540
+        # input indeks disesuaikan setelah masukan_extra lengkap (lihat pengganti [FACECAM:v] di bawah)
+        if fc_wajah:
+            fc_zoom = min(max(fc_wajah["s"] * 3.0, 0.25), 1.0)
+            graf.append(f"[FACECAM:v]{potong(fw, fh, 1.0, fc_wajah['x'], fc_wajah['y'], fc_zoom)},scale=540:540:flags=lanczos,setsar=1[facecam]")
+        else:
+            graf.append(f"[FACECAM:v]{potong(fw, fh, 1.0, 0.5, 0.5)},scale=540:540:flags=lanczos,setsar=1[facecam]")
+
+        # Border halus di sekitar facecam
+        graf.append(f"[facecam]pad=552:552:6:6:color=0x22D3EE[fc]")
+
+        # Overlay facecam di bawah tengah game, sedikit di atas agar subtitel tidak tertutup
+        fc_y = game_h + 30
+        graf.append(f"[game][fc]overlay=x=(W-w)/2:y={fc_y}:shortest=1[vid]")
     elif rasio == "9:16":
         if fokus == "auto":  # ikuti pembicara per adegan, termasuk saat kamera berganti
             crop = potong_jejak(w, h, 9 / 16, jejak_wajah(file, klip.mulai, klip.selesai, w, h))
@@ -1206,8 +1233,6 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
                          f"if(between(it,{t + 0.15:.2f},{t + 1.4:.2f}),1-(it-{t + 0.15:.2f})/1.25,0))" for t in tt)
             graf.append(f"[{v}]zoompan=z='1+0.08*min({z},1)':x='iw/2-(iw/zoom/2)':y='ih*0.4-(ih/zoom*0.4)':d=1:s=1080x1920:fps={fps:.3f}[vz]")
             v = "vz"
-    masukan_extra: list[str] = []
-    n_in = 1  # input 0 = video sumber
     # B-roll: zoom pelan 1,00→1,08 + sedikit digelapkan, menutupi video selama ±2,4 dtk
     for i, sp in enumerate(g.get("_sisipan") or []):
         lama = sp["b"] - sp["a"]
@@ -1295,6 +1320,9 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
 
     # audio: suara asli (boost) + musik latar + SFX hook
     masukan = ["-ss", f"{klip.mulai:.2f}", "-t", f"{durasi:.2f}", "-i", str(file.resolve()), *masukan_extra]
+    fc_path = g.get("facecam")
+    if fc_path:
+        masukan += ["-ss", f"{klip.mulai:.2f}", "-t", f"{durasi:.2f}", "-i", str(Path(fc_path).resolve())]
     aud = [f"[0:a]volume={float(g.get('suara', 100)) / 100:.2f}[a0]"]
     campur = ["[a0]"]
     idx = n_in
@@ -1315,6 +1343,10 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         aud.append(f"{''.join(campur)}amix=inputs={len(campur)}:duration=first:normalize=0,alimiter=limit=0.95[aout]")
     else:
         aud.append("[a0]anull[aout]")
+
+    # facecam selalu input terakhir (setelah semua masukan_extra); hitung berapa -i di masukan_extra
+    fc_in = 1 + sum(1 for i, a in enumerate(masukan_extra) if a == "-i")
+    graf = [g.replace("[FACECAM:v]", f"[{fc_in}:v]") for g in graf]
 
     subprocess.run([
         ffmpeg(), "-y", "-v", "error", *masukan,
@@ -1526,6 +1558,8 @@ def main() -> None:
     p.add_argument("--broll", choices=["pixabay", "file"], help="sisipkan B-roll: pixabay (butuh PIXABAY_API_KEY) atau file sendiri")
     p.add_argument("--broll-file", nargs="*", default=[], help="video/foto milikmu untuk B-roll (dengan --broll file)")
     p.add_argument("--watermark", help="teks di tengah klip, putih transparan ±50%%, mis. @akunmu")
+    p.add_argument("--layout", default="tunggal", choices=["tunggal", "facecam", "pip", "gamer"], help="tampilan klip: tunggal, facecam, pip, gamer")
+    p.add_argument("--facecam", help="file facecam kamera untuk layout gamer (2 kamera, game di atas + wajah di bawah)")
     p.add_argument("--gaya", help="JSON gaya render (rasio, latar, fokus, layout, banner, subtitle, musik, …)")
     a = p.parse_args()
 
@@ -1541,8 +1575,9 @@ def main() -> None:
     kerja = keluar / ".kerja"
     kerja.mkdir(parents=True, exist_ok=True)
     gaya = {**({"warna": a.warna} if a.warna else {}), "subtitle": not a.tanpa_subtitle, "fokus": "tengah" if a.tanpa_wajah else "auto",
-            "banner": False, **({"broll": a.broll, "broll_file": a.broll_file} if a.broll else {}),
-            **({"watermark": a.watermark} if a.watermark else {})}
+            "layout": a.layout, "banner": False, **({"broll": a.broll, "broll_file": a.broll_file} if a.broll else {}),
+            **({"watermark": a.watermark} if a.watermark else {}),
+            **({"facecam": a.facecam} if a.facecam else {})}
     if a.gaya:
         isi = a.gaya if a.gaya.lstrip().startswith("{") else Path(a.gaya).read_text(encoding="utf-8")
         gaya.update(json.loads(isi))
