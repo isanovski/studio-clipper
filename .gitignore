@@ -8,3 +8,7 @@ info.json
 klip.json
 prompt-claude.md
 gambar.jpg
+
+# sisa import python
+__pycache__/
+*.pyc
