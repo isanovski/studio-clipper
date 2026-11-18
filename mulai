@@ -1,0 +1,561 @@
+#!/usr/bin/env python3
+# kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (LISENSI.md): dilarang dijual ulang.
+"""isanovski Studio — pemandu CLI.
+
+Tampilan menu seperti web UI, tapi semuanya di terminal:
+  ./mulai
+
+Tidak butuh dependensi: cukup Python 3 bawaan. Pekerjaan beratnya tetap
+dijalankan oleh klip/klip.py dan motion/buat.mjs lewat `uv` / `node`.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import threading
+import time
+from datetime import datetime
+from pathlib import Path
+
+AKAR = Path(__file__).resolve().parent
+HASIL = AKAR / "hasil"
+KUNCI_ENV = AKAR / "klip" / ".env"
+
+# ── warna (mengikuti tema Ink/Ember, dimatikan kalau bukan TTY) ──────────────
+TTY = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+def w(kode: str, teks: str) -> str:
+    return f"\033[{kode}m{teks}\033[0m" if TTY else teks
+
+AMBER = lambda t: w("38;5;214", t)
+DIM = lambda t: w("2", t)
+TEBAL = lambda t: w("1", t)
+MERAH = lambda t: w("31", t)
+HIJAU = lambda t: w("32", t)
+GARIS = lambda t: w("38;5;240", t)
+
+
+def lebar() -> int:
+    try:
+        return max(60, min(88, shutil.get_terminal_size((84, 24)).columns))
+    except OSError:
+        return 84
+
+
+def garis(kar="─") -> None:
+    print(GARIS(kar * min(lebar(), 76)))
+
+
+def judul(teks: str) -> None:
+    print()
+    print(TEBAL(AMBER("  " + teks)))
+    garis()
+
+
+def info(teks: str) -> None:
+    print(DIM("  " + teks))
+
+
+def ok(teks: str) -> None:
+    print("  " + HIJAU("✓ ") + teks)
+
+
+def gagal(teks: str) -> None:
+    print("  " + MERAH("✗ ") + teks)
+
+
+def tanya(label: str, bawaan: str = "") -> str:
+    """Tanya satu baris; Enter = nilai bawaan."""
+    ekor = f" {DIM('[' + bawaan + ']')}" if bawaan else ""
+    try:
+        jawab = input(f"  {label}{ekor}: ").strip()
+    except EOFError:
+        return bawaan
+    return jawab or bawaan
+
+
+def pilih(label: str, opsi: list[str], bawaan: int = 0) -> int:
+    """Menu bernomor. Enter = pilihan bawaan (1-based di layar)."""
+    for i, o in enumerate(opsi, 1):
+        tanda = AMBER("›") if i - 1 == bawaan else " "
+        print(f"  {tanda} {DIM(str(i))} {o}")
+    print()
+    while True:
+        jawab = tanya(label, str(bawaan + 1))
+        if jawab.isdigit() and 1 <= int(jawab) <= len(opsi):
+            return int(jawab) - 1
+        gagal("Pilih angka yang ada di daftar.")
+
+
+def ya(label: str, bawaan: bool = True) -> bool:
+    jawab = tanya(label + (" [Y/n]" if bawaan else " [y/N]")).lower()
+    if not jawab:
+        return bawaan
+    return jawab.startswith("y")
+
+
+def manusia(byte: int) -> str:
+    for satuan in ("B", "KB", "MB", "GB"):
+        if byte < 1024 or satuan == "GB":
+            return f"{byte:.0f} {satuan}" if satuan == "B" else f"{byte:.1f} {satuan}"
+        byte /= 1024
+    return f"{byte:.1f} GB"
+
+
+def detik_ke_teks(d: int) -> str:
+    j, s = divmod(int(d), 3600)
+    m, s = divmod(s, 60)
+    return f"{j} jam {m} menit" if j else (f"{m} menit" if m else f"{s} detik")
+
+
+def bungkus(teks: str, lebar_maks: int) -> list[str]:
+    kata, baris, kini = teks.split(), [], ""
+    for k in kata:
+        if len(kini) + len(k) + 1 > max(20, lebar_maks):
+            baris.append(kini)
+            kini = k
+        else:
+            kini = (kini + " " + k).strip()
+    if kini:
+        baris.append(kini)
+    return baris or [""]
+
+
+def bersihkan_jalur(teks: str) -> str:
+    """Tempelan drag & drop biasanya berbungkus kutip atau di-escape."""
+    t = teks.strip().strip("'\"").replace("\\ ", " ").replace("file://", "")
+    return os.path.expanduser(t)
+
+
+# ── menjalankan proses dengan status hidup ───────────────────────────────────
+class Status:
+    def __init__(self, label: str):
+        self.label, self.mulai, self.aktif, self.baris = label, time.time(), True, ""
+        self.t = threading.Thread(target=self._jalan, daemon=True)
+
+    def _jalan(self):
+        bingkai = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+        i = 0
+        while self.aktif:
+            if not self.baris:
+                detik = int(time.time() - self.mulai)
+                sys.stdout.write(f"\r  {AMBER(bingkai[i % len(bingkai)])} {self.label} {DIM(f'{detik}s')}   ")
+                sys.stdout.flush()
+                i += 1
+            time.sleep(0.15)
+
+    def __enter__(self):
+        if TTY:
+            self.t.start()
+        return self
+
+    def henti(self):
+        if self.aktif and TTY:
+            self.aktif = False
+            self.t.join(timeout=1)
+            sys.stdout.write("\r" + " " * (lebar() - 1) + "\r")
+            sys.stdout.flush()
+        else:
+            self.aktif = False
+
+    def __exit__(self, *_):
+        self.henti()
+
+
+def jalan(cmd: list[str], cwd: Path | None = None, label: str = "bekerja", kering: bool = False) -> int:
+    """Jalankan perintah, tampilkan keluarannya sebagai langkah-langkah."""
+    if kering:
+        info("(uji kering) " + " ".join(cmd))
+        return 0
+    env = os.environ.copy()
+    env.setdefault("PYTHONUNBUFFERED", "1")
+    print()
+    proses = subprocess.Popen(cmd, cwd=str(cwd or AKAR), env=env, text=True,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
+    status = Status(label)
+    status.__enter__()
+    try:
+        assert proses.stdout is not None
+        for baris in proses.stdout:
+            baris = baris.rstrip()
+            if not baris:
+                continue
+            status.henti()
+            if baris.startswith("•"):
+                print("  " + AMBER("│") + " " + baris.lstrip("• ").strip())
+            else:
+                print("  " + DIM(baris[:lebar() - 4]))
+    finally:
+        status.henti()
+        kode = proses.wait()
+    print()
+    if kode == 0:
+        ok("selesai")
+    else:
+        gagal(f"gagal (kode {kode})")
+    return kode
+
+
+# ── pemeriksaan awal ─────────────────────────────────────────────────────────
+def ada(cmd: str) -> bool:
+    return shutil.which(cmd) is not None or (AKAR / cmd).exists()
+
+
+def cek_uv() -> bool:
+    for kandidat in (["uv"], [str(Path.home() / ".local/bin/uv")]):
+        try:
+            r = subprocess.run(kandidat + ["--version"], capture_output=True, text=True, timeout=10)
+            if r.returncode == 0:
+                return True
+        except (OSError, subprocess.SubprocessError):
+            continue
+    return False
+
+
+def uv_cmd() -> str:
+    return shutil.which("uv") or str(Path.home() / ".local/bin/uv")
+
+
+def baca_kunci() -> str:
+    """Ambil GEMINI_API_KEY dari klip/.env atau environment."""
+    if os.environ.get("GEMINI_API_KEY"):
+        return os.environ["GEMINI_API_KEY"].strip()
+    if KUNCI_ENV.exists():
+        for baris in KUNCI_ENV.read_text(encoding="utf-8").splitlines():
+            if baris.strip().startswith("GEMINI_API_KEY"):
+                return baris.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
+def simpan_kunci(kunci: str) -> None:
+    isi = KUNCI_ENV.read_text(encoding="utf-8") if KUNCI_ENV.exists() else ""
+    if re.search(r"^GEMINI_API_KEY=.*$", isi, re.M):
+        isi = re.sub(r"^GEMINI_API_KEY=.*$", f"GEMINI_API_KEY={kunci}", isi, count=1, flags=re.M)
+    else:
+        isi = (isi.rstrip() + f"\nGEMINI_API_KEY={kunci}\n") if isi else f"GEMINI_API_KEY={kunci}\n"
+    KUNCI_ENV.parent.mkdir(parents=True, exist_ok=True)
+    KUNCI_ENV.write_text(isi, encoding="utf-8")
+    try:
+        os.chmod(KUNCI_ENV, 0o600)
+    except OSError:
+        pass
+
+
+def durasi_video(jalur: str) -> int:
+    """Durasi dalam detik lewat ffprobe kalau ada; 0 kalau tidak tahu."""
+    if not shutil.which("ffprobe") or jalur.startswith("http"):
+        return 0
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                            "-of", "default=nw=1:nk=1", jalur],
+                           capture_output=True, text=True, timeout=20)
+        return int(float(r.stdout.strip())) if r.returncode == 0 and r.stdout.strip() else 0
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return 0
+
+
+# ── alur 1: klip ─────────────────────────────────────────────────────────────
+def alur_klip(kering: bool = False) -> None:
+    judul("Potong video jadi klip 9:16")
+    info("Tempel link YouTube, atau seret file videonya ke sini (Enter = batal).")
+    print()
+    sumber = tanya("Video")
+    if not sumber:
+        return
+    sumber = bersihkan_jalur(sumber)
+
+    if sumber.startswith("http"):
+        info("Link diterima — pengunduhan bisa gagal kalau IP ini diblokir YouTube.")
+    else:
+        p = Path(sumber)
+        if not p.exists() and not p.is_absolute():
+            p = (Path.cwd() / sumber)
+        if not p.exists():
+            gagal(f"File tidak ditemukan: {sumber}")
+            return
+        sumber = str(p.resolve())
+        d = durasi_video(sumber)
+        if d:
+            panjang = detik_ke_teks(d)
+            rendah, tinggi = d * 2.5 / 60, d * 5 / 60
+            if tinggi < 1:
+                kira = "kurang dari 1 menit"
+            else:
+                kira = f"{max(1, int(rendah))}–{max(2, int(tinggi))} menit"
+            ok(f"{p.name} · {panjang} · perkiraan transkripsi {kira}")
+
+    print()
+    jumlah = tanya("Jumlah klip", "3")
+    durasi = tanya("Durasi tiap klip (detik)", "30")
+    print()
+    ai_ke = pilih("Pemilih momen", ["lokal (gratis, tanpa kunci)", "gemini (butuh kunci)"], 0)
+    ai = "lokal" if ai_ke == 0 else "gemini"
+    if ai == "gemini" and not baca_kunci():
+        gagal("Kunci Gemini belum ada. Pilih menu 3 dulu, atau lanjut dengan lokal.")
+        if not ya("Lanjut pakai lokal?", True):
+            return
+        ai = "lokal"
+    print()
+    arahan = tanya("Cari momen tertentu? (kosong = bebas)", "")
+
+    if sumber.startswith("http"):
+        slug = "youtube"
+    else:
+        slug = re.sub(r"[^a-z0-9]+", "-", Path(sumber).stem.lower()).strip("-")[:30] or "klip"
+    tujuan = HASIL / f"{slug}-{datetime.now():%Y%m%d-%H%M}"
+    n = 2
+    while tujuan.exists():          # jangan menimpa hasil di menit yang sama
+        tujuan = HASIL / f"{slug}-{datetime.now():%Y%m%d-%H%M}-{n}"
+        n += 1
+    print()
+    info(f"hasil akan disimpan di {tujuan.relative_to(AKAR)}")
+    if not ya("Mulai sekarang?", True):
+        return
+
+    cmd = [uv_cmd(), "run", "klip/klip.py", sumber,
+           "--jumlah", str(jumlah), "--durasi", str(durasi),
+           "--keluar", str(tujuan), "--ai", ai]
+    if arahan:
+        cmd += ["--arahan", arahan]
+    kode = jalan(cmd, label="menganalisis & merender", kering=kering)
+    if kode != 0:
+        print()
+        info("Kalau videonya dari YouTube, unduh dulu di laptop lalu seret filenya.")
+        return
+    hasil_klip(tujuan, kering=kering)
+
+
+def hasil_klip(tujuan: Path, kering: bool = False) -> None:
+    if kering:
+        info("(uji kering) tidak ada berkas yang dibuat")
+        return
+    berkas = sorted(tujuan.glob("klip-*.mp4"))
+    judul("Selesai")
+    if not berkas:
+        gagal("Tidak ada klip yang dihasilkan.")
+        return
+    total = sum(b.stat().st_size for b in berkas)
+    ok(f"{len(berkas)} klip · total {manusia(total)} · {tujuan.relative_to(AKAR)}")
+    for b in berkas:
+        print(f"    {AMBER(b.name)}  {DIM(manusia(b.stat().st_size))}")
+
+    # judul & hook dari klip.json
+    data = []
+    kj = tujuan / "klip.json"
+    if kj.exists():
+        try:
+            data = json.loads(kj.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = []
+
+    print()
+    while True:
+        aksi = pilih("Lanjut apa?", [
+            "sudah cukup, kembali ke menu",
+            "lihat judul & hook tiap klip",
+            "render ulang klip tertentu",
+            "cara mengambil file ini",
+        ], 0)
+        if aksi == 0:
+            return
+        if aksi == 1:
+            if not data:
+                info("klip.json tidak ada / kosong.")
+                continue
+            for i, d in enumerate(data, 1):
+                print()
+                print("  " + TEBAL(f"{i}. {d.get('judul') or '(tanpa judul)'}"))
+                skor = d.get("skor")
+                hook = d.get("hook")
+                ekor = []
+                if skor is not None:
+                    ekor.append(f"skor {skor}")
+                if isinstance(hook, (int, float)):
+                    ekor.append(f"hook {hook}")
+                elif hook:
+                    ekor.append(str(hook))
+                if d.get("mulai") is not None:
+                    ekor.append(f"{d['mulai']}–{d.get('selesai')} detik")
+                if ekor:
+                    print("     " + DIM(" · ".join(ekor)))
+                for label, isi in (("alasan", d.get("alasan")), ("kutipan", d.get("kutipan"))):
+                    if not isi:
+                        continue
+                    baris = bungkus(str(isi), lebar() - 20)
+                    print("     " + DIM(f"{label}: ") + baris[0])
+                    for lanjut in baris[1:]:
+                        print("     " + " " * (len(label) + 2) + lanjut)
+            print()
+        elif aksi == 2:
+            nomor = tanya("Nomor klip yang dirender ulang (mis. 1,3)")
+            if not nomor:
+                continue
+            jalan([uv_cmd(), "run", "klip/klip.py", "--keluar", str(tujuan),
+                   "--render", "--pilih", nomor], label="merender ulang")
+        elif aksi == 3:
+            cara_ambil(tujuan)
+
+
+def cara_ambil(tujuan: Path) -> None:
+    print()
+    if os.environ.get("CODESPACES") == "true":
+        info("Di Codespaces: buka panel Explorer kiri, klik kanan file .mp4 → Download.")
+        info("Dari laptopmu (butuh scope codespace):")
+        print(DIM(f"    gh codespace cp -r remote:{tujuan} ."))
+    else:
+        info("Folder hasil:")
+        print(DIM(f"    {tujuan}"))
+        if shutil.which("xdg-open"):
+            info("Buka folder: xdg-open " + str(tujuan))
+    print()
+
+
+# ── alur 2: motion ──────────────────────────────────────────────────────────
+def alur_motion(kering: bool = False) -> None:
+    judul("Topik jadi video animasi")
+    if not shutil.which("node"):
+        gagal("Node.js belum terpasang. Jalankan dulu: bash pasang-cloud.sh")
+        return
+    info("Tulis satu topik; AI menyusun naskahnya, lalu dirender jadi video 9:16.")
+    print()
+    topik = tanya("Topik")
+    if not topik:
+        return
+    if not baca_kunci():
+        gagal("Butuh kunci Gemini untuk menulis naskah. Pilih menu 3 dulu.")
+        return
+
+    print()
+    gaya = tanya("Gaya (garis, neon, kertas, sinematik, krem, …)", "garis")
+    nama = re.sub(r"[^a-z0-9]+", "-", topik.lower()).strip("-")[:40] or "naskah"
+    if not ya("Buat naskahnya sekarang?", True):
+        return
+    kode = jalan(["node", "naskah.mjs", topik, "--ai=gemini", "--gaya=" + gaya, "--nama=" + nama],
+                 cwd=AKAR / "motion", label="menulis naskah", kering=kering)
+    if kode != 0:
+        return
+    naskah = AKAR / "motion" / "naskah" / f"{nama}.json"
+    if not kering:
+        ok(f"naskah: {naskah.relative_to(AKAR)}")
+        info("Silakan buka & rapikan dulu kalau perlu (judul, kalimat).")
+    if not ya("Render jadi video sekarang?", True):
+        return
+    jalan(["node", "buat.mjs", f"naskah/{nama}.json", "--gaya=" + gaya],
+          cwd=AKAR / "motion", label="merender video (Remotion)", kering=kering)
+    if not kering:
+        hasil = AKAR / "motion" / "hasil" / f"{nama}-{gaya}.mp4"
+        if hasil.exists():
+            print()
+            ok(f"video: {hasil.relative_to(AKAR)} ({manusia(hasil.stat().st_size)})")
+
+
+# ── alur 3: kunci AI ────────────────────────────────────────────────────────
+def alur_kunci() -> None:
+    judul("Kunci AI (Gemini)")
+    kunci = baca_kunci()
+    if kunci:
+        ok("sudah tersimpan (" + kunci[:6] + "…" + kunci[-4:] + ")")
+    else:
+        info("belum ada — tanpa kunci, pemilih momen memakai heuristik lokal.")
+    print()
+    info("Ambil kunci gratis di https://aistudio.google.com/apikey")
+    info("Tempel di sini (tidak akan terlihat di layar). Enter = batal.")
+    print()
+    try:
+        import getpass
+        baru = getpass.getpass("  Kunci: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    if not baru:
+        return
+    if not re.fullmatch(r"[A-Za-z0-9_\-]{20,}", baru):
+        gagal("Bentuknya tidak seperti kunci Gemini (terlalu pendek / ada spasi).")
+        return
+    simpan_kunci(baru)
+    ok(f"disimpan di {KUNCI_ENV.relative_to(AKAR)} (hanya bisa dibaca kamu)")
+    print()
+    kode = jalan([uv_cmd(), "run", "klip/klip.py", "--uji-ai", "gemini"], label="menguji kunci")
+    if kode != 0:
+        info("Kunci tersimpan tapi uji gagal — cek kuota/jaringan, atau ganti kuncinya.")
+
+
+# ── alur 4: bantuan ─────────────────────────────────────────────────────────
+def bantuan() -> None:
+    judul("Kalau mau perintah manual")
+    tabel = [
+        ("analisis + render", 'uv run klip/klip.py "v.mp4" --jumlah 3 --durasi 30 --keluar hasil-x'),
+        ("analisis saja", 'uv run klip/klip.py "v.mp4" --hanya-analisis --keluar hasil-x'),
+        ("render ulang", "uv run klip/klip.py --keluar hasil-x --render --pilih 1,3"),
+        ("semua opsi klip", "uv run klip/klip.py -h"),
+        ("naskah motion", 'cd motion && node naskah.mjs "topik" --ai=gemini'),
+        ("render motion", "node motion/buat.mjs naskah/contoh.json --gaya=neon"),
+        ("pasang dependensi", "TANPA_WEB=1 bash pasang-cloud.sh"),
+    ]
+    for kiri, kanan in tabel:
+        print("  " + DIM(f"{kiri:<20}") + kanan)
+    print()
+    info("README.md berisi tutorial Codespaces, batasan render, dan lisensi.")
+
+
+# ── menu utama ──────────────────────────────────────────────────────────────
+def menu() -> None:
+    kering = "--kering" in sys.argv
+    if TTY:
+        print("\033[2J\033[H", end="")
+    print()
+    print("  " + TEBAL(AMBER("is")) + TEBAL(" isanovski Studio") + DIM("  ·  terminal"))
+    if not cek_uv():
+        print()
+        gagal("uv belum terpasang. Jalankan dulu:")
+        print(DIM("    TANPA_WEB=1 bash pasang-cloud.sh"))
+        print()
+        return
+
+    while True:
+        kunci = "ada" if baca_kunci() else "belum ada"
+        node = "ada" if shutil.which("node") else "tidak ada"
+        print()
+        garis()
+        print("  " + DIM(f"kunci AI: {kunci}   ·   Node: {node}   ·   {AKAR.name}"))
+        garis()
+        print()
+        pilihan = pilih("Mau bikin apa?", [
+            "Potong video jadi klip 9:16",
+            "Topik jadi video animasi",
+            "Kunci AI (Gemini)",
+            "Bantuan & perintah manual",
+            "Keluar",
+        ], 0)
+        try:
+            if pilihan == 0:
+                alur_klip(kering)
+            elif pilihan == 1:
+                alur_motion(kering)
+            elif pilihan == 2:
+                alur_kunci()
+            elif pilihan == 3:
+                bantuan()
+            else:
+                print()
+                info("sampai jumpa.")
+                print()
+                return
+        except KeyboardInterrupt:
+            print()
+            info("dibatalkan.")
+
+
+if __name__ == "__main__":
+    try:
+        if "--hasil" in sys.argv:
+            i = sys.argv.index("--hasil")
+            folder = Path(sys.argv[i + 1] if len(sys.argv) > i + 1 else ".").expanduser()
+            hasil_klip(folder if folder.is_absolute() else (Path.cwd() / folder))
+        else:
+            menu()
+    except KeyboardInterrupt:
+        print()
