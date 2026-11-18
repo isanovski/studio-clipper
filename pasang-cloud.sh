@@ -6,6 +6,7 @@
 #   bash pasang-cloud.sh              # pasang semua (Klip + Motion)
 #   LEWATI_KLIP=1 bash pasang-cloud.sh   # hanya UI + Motion (hemat ~2 GB)
 #   TANPA_NODE=1 bash pasang-cloud.sh    # tanpa Node (Motion tidak bisa render)
+#   TANPA_WEB=1 bash pasang-cloud.sh     # CLI saja: pasang dependensi, jangan nyalakan web UI
 #   STUDIO_PORT=8080 bash pasang-cloud.sh
 #
 # Setelah selesai, buka port yang dicetak di akhir lewat port-forwarding
@@ -80,7 +81,26 @@ if [ "${TANPA_NODE:-0}" != "1" ] && command -v node >/dev/null 2>&1; then
   ( cd "$AKAR/motion" && npm install --no-audit --no-fund --silent )
 fi
 
-# 5) Nyalakan mesin di latar belakang
+# 5) Mode CLI: pasang saja, tanpa server web
+if [ "${TANPA_WEB:-0}" = "1" ]; then
+  mkdir -p "$DATA"
+  echo ""
+  echo "✅ Terpasang. Mode CLI (tanpa web UI)."
+  echo ""
+  echo "   Klip — video → klip 9:16:"
+  echo "     uv run klip/klip.py \"video.mp4\" --jumlah 3 --durasi 30 --keluar hasil-klip"
+  echo "     uv run klip/klip.py --keluar hasil-klip --render --pilih 1,3   # render ulang dari analisis lama"
+  echo ""
+  echo "   Motion — naskah → video:"
+  echo "     node motion/buat.mjs naskah/contoh.json --gaya=neon --suara=tanpa"
+  echo "     hasil di motion/hasil/<nama>-<gaya>.mp4"
+  echo ""
+  echo "   Bantuan: uv run klip/klip.py -h  ·  node motion/buat.mjs  (lihat header skrip)"
+  echo "   Data  : $DATA"
+  exit 0
+fi
+
+# 6) Nyalakan mesin di latar belakang
 mkdir -p "$DATA"
 if curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$PORT_APP/"; then
   echo "• Studio sudah jalan di port $PORT_APP"
