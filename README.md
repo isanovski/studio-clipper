@@ -73,112 +73,187 @@ uv run studio/studio.py            # jendela aplikasi sendiri
 uv run studio/studio.py --browser  # buka di browser
 ```
 
-## Jalan di GitHub Codespaces (CLI, tanpa web UI)
+## Isi `.env` (kunci AI)
 
-Codespaces di sini dipakai sebagai **mesin render tanpa layar**. Tidak perlu web UI, tidak perlu port
-forwarding, tidak perlu buka browser di dalam codespace — semuanya lewat terminal.
+Ini **opsional**. Tanpa kunci, pemilih momen memakai heuristik lokal (gratis, kualitas lebih sederhana).
+Kunci hanya dibutuhkan kalau mau `--ai gemini` (atau penyedia lain).
 
-### 1. Buat codespace
+Lokasinya **di sebelah skripnya**, bukan di root repo:
 
-Repo di GitHub → **Code** → tab **Codespaces** → **Create codespace on main**. Tunggu terminal muncul.
+| Dipakai oleh | File |
+|---|---|
+| `klip/klip.py` | `klip/.env` |
+| `motion/naskah.mjs` (bikin naskah pakai AI) | `motion/.env` |
 
-### 2. Pasang dependensi saja
+```bash
+cp klip/.env.contoh klip/.env     # lalu isi salah satu kunci
+chmod 600 klip/.env               # hanya kamu yang bisa baca
+```
+
+Isi `klip/.env` — cukup **satu** penyedia, yang lain biarkan kosong:
+
+```bash
+# Gemini (paling gampang, ada kuota gratis): https://aistudio.google.com/apikey
+GEMINI_API_KEY=AIza...isi_punyamu
+GEMINI_MODEL=gemini-3.8-flash
+
+# ATAU OpenAI-compatible: Ollama lokal (gratis), OpenAI, OpenRouter, Groq
+OPENAI_BASE_URL=http://localhost:11434/v1
+OPENAI_API_KEY=
+OPENAI_MODEL=llama3.1
+```
+
+Cara lain tanpa file: variabel lingkungan — ini yang dipakai kalau kunci disimpan sebagai Codespace secret.
+
+```bash
+export GEMINI_API_KEY="AIza..."     # berlaku selama terminal itu hidup
+uv run klip/klip.py "video.mp4" --ai gemini --jumlah 3 --keluar hasil-klip
+```
+
+Cek kuncinya benar sebelum render panjang:
+
+```bash
+uv run klip/klip.py --uji-ai lokal     # → SIAP (mode lokal tidak memakai AI luar)
+uv run klip/klip.py --uji-ai gemini    # tanpa kunci → "Isi GEMINI_API_KEY di .env…"
+```
+
+`klip/.gitignore` sudah menutup `.env`, jadi kunci tidak ikut ter-commit. Tapi tetap: jangan pernah
+tempel isi `.env` ke chat, issue, atau screenshot.
+
+## Codespace: perintah dari nol
+
+Codespaces dipakai sebagai **mesin render tanpa layar** — tanpa web UI, tanpa port forwarding, tanpa browser
+di dalam codespace. Repo sudah otomatis ada di `/workspaces/studio-clipper`, jadi **tidak perlu `git clone`**.
+
+### Perintah pertama
+
+Buka repo di GitHub → **Code** → tab **Codespaces** → **Create codespace on main**. Tunggu sampai terminal
+di bawah muncul, lalu ketik **satu** perintah ini:
 
 ```bash
 TANPA_WEB=1 bash pasang-cloud.sh
 ```
 
-±5–10 menit, ±2 GB (whisper, opencv, Remotion). `TANPA_WEB=1` artinya **jangan nyalakan server web**;
-setelah selesai skrip cuma mencetak contoh perintah lalu keluar.
+Itu saja. Skrip memasang uv, Node, dependensi Python, dan `npm install` untuk Motion (±5–10 menit, ±2 GB),
+lalu **berhenti tanpa menyalakan server web**. Di akhir ia mencetak contoh perintah CLI.
 
-Kalau Motion tidak dipakai: `TANPA_WEB=1 TANPA_NODE=1 bash pasang-cloud.sh` (hemat ~400 MB).
-Kalau Klip tidak dipakai: tambahkan `LEWATI_KLIP=1` (hemat ~1,5 GB).
-
-### 3. Masukkan video
-
-- **Seret file** ke panel Explorer di kiri (folder mana saja, misal root repo).
-- Atau dari laptopmu (butuh `gh auth refresh -h github.com -s codespace` sekali saja):
-  `gh codespace cp ./video.mp4 remote:/workspaces/studio-clipper/`
-
-### 4. Render klip
+Kalau Motion tidak dipakai:
 
 ```bash
-uv run klip/klip.py "video.mp4" --jumlah 3 --durasi 30 --keluar hasil-klip
+TANPA_WEB=1 TANPA_NODE=1 bash pasang-cloud.sh
 ```
 
-Yang terjadi (semuanya tercetak di terminal, ini contoh):
+### Isi kunci AI (kalau mau `--ai gemini`)
+
+```bash
+cp klip/.env.contoh klip/.env
+code klip/.env            # atau: nano klip/.env
+```
+
+Isi satu baris ini, simpan:
+
+```bash
+GEMINI_API_KEY=AIza...isi_punyamu
+```
+
+Kunci gratis di https://aistudio.google.com/apikey. Verifikasi:
+
+```bash
+uv run klip/klip.py --uji-ai gemini
+```
+
+Kalau tidak mau menyimpan kunci di file (dan ingin tetap ada setelah codespace di-rebuild): simpan sebagai
+**Codespace secret** — GitHub → repo **Settings** → **Secrets and variables** → **Codespaces** → **New
+repository secret**, nama `GEMINI_API_KEY`. Setelah codespace di-restart, nilainya muncul sebagai variabel
+lingkungan dan langsung terbaca oleh `klip.py`.
+
+### Taruh videonya
+
+- **Seret file** ke panel Explorer di kiri (folder mana saja, misal root repo), atau
+- dari laptopmu: `gh codespace cp ./video.mp4 remote:/workspaces/studio-clipper/`
+  (butuh `gh auth refresh -h github.com -s codespace` sekali saja)
+
+### Render
+
+```bash
+uv run klip/klip.py "video.mp4" --ai gemini --jumlah 3 --durasi 30 --keluar hasil-klip
+```
+
+`--ai gemini` boleh dihapus kalau tidak punya kunci. Prosesnya tercetak di terminal:
 
 ```
-• Video: video — 43 menit, 1920x1080
+• Video: video.mp4 — 43 menit, 1920x1080
 • Transkripsi dengan faster-whisper model 'small' …
-• Bahasa terdeteksi: id, 812 kalimat.
 • Mencari momen terbaik …
 • Analisis selesai: 3 momen.
 • Render 1/3 klip-01.mp4: 12:04–12:34  "…"
 • Selesai. 3 klip di hasil-klip
 ```
 
+Run pertama mengunduh model whisper (`small` ±464 MB) ke `~/.cache/huggingface`.
+
 Isi `hasil-klip/`:
 
 | File | Isi |
 |---|---|
-| `klip-01.mp4`, `klip-02.mp4`, … | klip 9:16 siap unggah |
-| `klip.json` | skor, judul, hook, kutipan, caption — bisa diedit lalu render ulang |
+| `klip-01.mp4`, `klip-02.mp4`, … | klip 9:16 siap diunggah |
+| `klip.json` | skor, judul, hook, kutipan, caption — boleh diedit, lalu render ulang |
 | `transkrip.json` | transkrip lengkap |
 | `info.json`, `gambar.jpg`, `gaya.json` | metadata, thumbnail, gaya subtitle |
 
-Dua tahap (hemat waktu kalau cuma mau lihat momen dulu):
+Dua tahap (analisis dulu, render belakangan — hemat waktu kalau cuma mau lihat momen):
 
 ```bash
-uv run klip/klip.py "video.mp4" --hanya-analisis --keluar hasil-klip   # analisis saja
-uv run klip/klip.py --keluar hasil-klip --render --pilih 1,3           # render pilihan
+uv run klip/klip.py "video.mp4" --hanya-analisis --keluar hasil-klip
+uv run klip/klip.py --keluar hasil-klip --render --pilih 1,3
 ```
 
-Opsi yang sering dipakai:
+### Ambil hasilnya
 
-| Opsi | Arti |
+Klik kanan file `.mp4` di Explorer → **Download**. Atau dari laptopmu:
+
+```bash
+gh codespace cp remote:/workspaces/studio-clipper/hasil-klip/klip-01.mp4 .
+```
+
+### Lembar perintah lengkap
+
+| Tujuan | Perintah |
 |---|---|
-| `--jumlah 5 --durasi 45` | 5 klip, target 45 detik |
-| `--arahan "momen lucu"` | fokus pencarian momen |
-| `--rentang 10:00-25:30` | hanya analisis bagian itu |
-| `--tanpa-wajah` | bingkai tengah, tidak mengikuti wajah |
-| `--tanpa-subtitle` | tanpa subtitle |
-| `--pilih 1,3` | render klip nomor 1 dan 3 saja |
-| `--ai gemini` | pemilih momen pakai Gemini (butuh `GEMINI_API_KEY`) |
+| Perintah pertama | `TANPA_WEB=1 bash pasang-cloud.sh` |
+| Pasang + web UI | `bash pasang-cloud.sh` |
+| Pasang tanpa Motion | `TANPA_WEB=1 TANPA_NODE=1 bash pasang-cloud.sh` |
+| Pasang tanpa Klip | `TANPA_WEB=1 LEWATI_KLIP=1 bash pasang-cloud.sh` |
+| Cek AI | `uv run klip/klip.py --uji-ai gemini` |
+| Analisis saja | `uv run klip/klip.py "v.mp4" --hanya-analisis --keluar hasil-klip` |
+| Render pilihan | `uv run klip/klip.py --keluar hasil-klip --render --pilih 1,3` |
+| Render semua | `uv run klip/klip.py "v.mp4" --jumlah 5 --durasi 45 --keluar hasil-klip` |
+| Cari momen tertentu | `... --arahan "momen lucu" --rentang 10:00-25:30` |
+| Tanpa wajah / subtitle | `... --tanpa-wajah --tanpa-subtitle` |
+| Bantuan semua opsi | `uv run klip/klip.py -h` |
+| Bikin naskah Motion | `cd motion && node naskah.mjs "topik video" --ai=gemini && cd ..` |
+| Render Motion | `node motion/buat.mjs naskah/contoh.json --gaya=neon` |
+| Lihat pemakaian disk | `du -sh hasil-klip ~/.cache/huggingface motion/node_modules` |
+| Hapus hasil lama | `rm -rf hasil-klip` |
+| Render tahan putus | `tmux new -s klip` … `tmux attach -t klip` |
 
-Kunci AI untuk CLI ditaruh di environment atau `klip/.env`:
+### Kalau ada masalah
 
-```bash
-export GEMINI_API_KEY="..."          # atau tulis di klip/.env
-```
+| Gejala | Sebab / solusi |
+|---|---|
+| `Isi GEMINI_API_KEY di .env` | kunci belum ada di `klip/.env` atau env terminal |
+| `Sign in to confirm you're not a bot` | link YouTube diblokir dari IP GitHub → unduh di laptop, seret filenya |
+| Render mati sendiri | codespace tidur (±30 menit idle) → jalankan di `tmux` |
+| `No space left on device` | `rm -rf hasil-klip` dan hapus video sumber yang sudah tidak dipakai |
+| Mau lihat log | semua progres ada di terminal; tidak ada file log di mode CLI |
 
-Tanpa kunci, pemilih momen memakai heuristik **lokal** (gratis, kualitas lebih sederhana).
+### Yang perlu diingat
 
-### 5. Motion (kalau perlu)
-
-```bash
-node motion/buat.mjs naskah/contoh.json --gaya=neon --suara=tanpa
-```
-
-Hasil: `motion/hasil/<nama>-<gaya>.mp4`. Naskah JSON bisa ditulis tangan atau dibuat AI lewat
-`node motion/naskah.mjs "topik video" --ai=gemini`.
-
-### 6. Ambil hasilnya
-
-Klik kanan file `.mp4` di Explorer → **Download**.
-Atau dari laptopmu: `gh codespace cp remote:/workspaces/studio-clipper/hasil-klip/klip-01.mp4 .`
-
-### Yang harus diingat
-
-- **Codespace tidur setelah ±30 menit tanpa aktivitas** → render yang sedang jalan ikut mati. Biarkan tab
-  VS Code terbuka, atau jalankan di `tmux` supaya bisa disambung lagi: `tmux new -s klip`.
-- **Link YouTube hampir pasti gagal** dari IP GitHub (YouTube menolak IP datacenter). Unduh videonya di
-  laptop, lalu seret filenya ke codespace.
-- **File hilang** kalau codespace dihapus. Unduh hasil sebelum menghapus.
-- Kuota gratis akun pribadi ±120 core-hour/bulan. Transkripsi video 1 jam memakai CPU penuh selama
-  **±2,5–5 jam** di mesin 2 core — hitung pemakaianmu.
+- Kuota gratis akun pribadi ±120 core-hour/bulan. Transkripsi video 1 jam memakan CPU penuh **±2,5–5 jam**
+  di mesin 2 core — hitung pemakaianmu sebelum render video panjang.
+- Semua file hilang kalau codespace dihapus. Unduh hasilnya dulu.
 - `TANPA_WEB=1` hanya soal tidak menyalakan web. Kalau nanti mau UI-nya, jalankan `bash pasang-cloud.sh`
-  tanpa variabel itu, lalu buka lewat tab PORTS seperti biasa.
+  (tanpa variabel itu), lalu buka port 8787 lewat tab PORTS.
 
 ## Pakai di HP (dari laptop sendiri, tanpa Codespaces)
 
