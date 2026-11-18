@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -128,10 +129,16 @@ class Kalimat:
     kata: list[Kata]
 
 
-def transkrip(file: Path, model: str, bahasa: str | None) -> list[Kalimat]:
+def transkrip(file: Path, model: str, bahasa: str | None, beam: int = 5, potong: int = 0) -> list[Kalimat]:
+    """Transkripsi dengan faster-whisper.
+
+    potong > 0 → audio dipecah jadi chunk detik itu (default 120) dan diproses satu per satu.
+    Gunanya: model besar (medium/large) di RAM kecil tidak swap-thrash, karena peak memory per chunk kecil.
+    Timestamp kata digeser balik ke waktu asli video.
+    """
     from faster_whisper import WhisperModel
     log(f"Transkripsi dengan faster-whisper model '{model}' (pertama kali akan mengunduh model)…")
-    m = WhisperModel(model, device="cpu", compute_type="int8")
+    m = WhisperModel(model, device="cpu", compute_type="int8", cpu_threads=max(1, (os.cpu_count() or 2)))
     sr = 16000  # decode sendiri dengan ffmpeg bawaan → tidak bergantung versi PyAV
     raw = subprocess.run([ffmpeg(), "-v", "error", "-i", str(file), "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"],
                          capture_output=True, check=True).stdout
@@ -140,13 +147,31 @@ def transkrip(file: Path, model: str, bahasa: str | None) -> list[Kalimat]:
     # menular ke kalimat berikutnya / pengulangan), dan prompt awal berisi gaya bahasa sehari-hari sebagai petunjuk ejaan.
     petunjuk = ("Percakapan santai bahasa Indonesia: nggak, enggak, gimana, kayak, banget, sih, dong, kok, gue, lo, "
                 "YouTube, podcast, konten, viral.") if (bahasa or "id") == "id" else None
-    segs, info = m.transcribe(audio, language=bahasa, word_timestamps=True, vad_filter=True, beam_size=5,
-                              condition_on_previous_text=False, initial_prompt=petunjuk)
-    hasil = []
-    for s in segs:
-        kata = [Kata(w.start, w.end, w.word.strip()) for w in (s.words or []) if w.word.strip()]
-        hasil.append(Kalimat(s.start, s.end, s.text.strip(), kata))
-    log(f"Bahasa terdeteksi: {info.language}, {len(hasil)} kalimat.")
+    hasil: list[Kalimat] = []
+    bahasa_deteksi = ""
+    if potong > 0:
+        n = max(1, (len(audio) + sr * potong - 1) // (sr * potong))
+        for i in range(n):
+            a0 = i * potong * sr
+            a1 = min(len(audio), (i + 1) * potong * sr)
+            if a1 <= a0:
+                break
+            off = a0 / sr
+            segs, info = m.transcribe(audio[a0:a1], language=bahasa, word_timestamps=True, vad_filter=True,
+                                      beam_size=beam, condition_on_previous_text=False, initial_prompt=petunjuk)
+            for s in segs:
+                kata = [Kata(w.start + off, w.end + off, w.word.strip()) for w in (s.words or []) if w.word.strip()]
+                hasil.append(Kalimat(s.start + off, s.end + off, s.text.strip(), kata))
+            bahasa_deteksi = info.language
+            log(f"   Chunk {i + 1}/{n} selesai ({off:.0f}s–{a1 / sr:.0f}s), total {len(hasil)} kalimat.")
+    else:
+        segs, info = m.transcribe(audio, language=bahasa, word_timestamps=True, vad_filter=True, beam_size=beam,
+                                  condition_on_previous_text=False, initial_prompt=petunjuk)
+        for s in segs:
+            kata = [Kata(w.start, w.end, w.word.strip()) for w in (s.words or []) if w.word.strip()]
+            hasil.append(Kalimat(s.start, s.end, s.text.strip(), kata))
+        bahasa_deteksi = info.language
+    log(f"Bahasa terdeteksi: {bahasa_deteksi}, {len(hasil)} kalimat.")
     return hasil
 
 
@@ -1191,56 +1216,42 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
                     f"pad=392:392:6:6:color=0x22D3EE[kecil]")
         graf.append("[utama][kecil]overlay=x=W-w-60:y=220[vid]")
     elif layout == "gamer":
-        fc_h = 720   # facecam 720x720 di tengah atas, diperagang pas
-        game_h = 840   # gameplay 1080x840 (4:3 crop) di bawah
-        g["posisi_y"] = 42   # subtitle ~800px dari atas (tengah frame)
+        # Kanvas 1080x1920: facecam 720x720 tengah atas, gameplay 4:3 1080x840 di bawah
+        g["posisi_y"] = 50   # subtitle tepat tengah frame (MarginV 960)
+        g.setdefault("preset", "terbaca")  # font & gaya dari preset repo
         g["ukuran"] = "kecil"
 
         if g.get("facecam"):
             # Dua file: facecam terpisah + gameplay
-            fc_path = Path(g["facecam"]).resolve()
-            # Facecam: 720x720 apa adanya (tidak diperagang), di tengah atas
-            graf.append(f"[FACECAM:v]scale=720:720:flags=lanczos,setsar=1[fc]")
+            graf.append("[FACECAM:v]scale=720:720:flags=lanczos,setsar=1[fc]")
 
-            # Gameplay: TETEP LANDSCAPE 4:3 dari input 0 langsung
-            graf.append(f"[0:v]crop=min(iw\\,ih*4/3):min(ih\\,iw*3/4),scale=1080:840:flags=lanczos,setsar=1[game_scaled]")
-
-            # Facecam di tengah atas, gameplay di bawahnya, sisanya hitam
-            fc_x = (1080 - 720) // 2
-            graf.append(f"[game_scaled][fc]overlay=x={fc_x}:y=0[vid_base]")
-            graf.append(f"[vid_base]pad=1080:1920:0:0:color=black[vid]")
+            # Gameplay: tetap landscape, crop 4:3 dari tengah input 0
+            graf.append("[0:v]crop=min(iw\\,ih*4/3):min(ih\\,iw*3/4),scale=1080:840:flags=lanczos,setsar=1[game_scaled]")
         else:
-            # Satu file: split input 0 -> facecam atas + gameplay bawah
+            # Satu file: split input 0 -> facecam (strip wajah) + gameplay
             graf.append("[0:v]split=2[va][vb]")
 
-            # Facecam: deteksi wajah, crop strip bawah, scale ke 720x720
             kunci = jejak_wajah(file, klip.mulai, klip.selesai, w, h) if is_installed() else [(0.0, 0.5)]
             ch_src = min(int(h * 0.45) // 2 * 2, h)
             y_src = h - ch_src
-            if len(kunci) > 1:
-                x_pos = kunci[-1][1]
-            else:
-                x_pos = kunci[0][1]
+            x_pos = kunci[-1][1] if len(kunci) > 1 else kunci[0][1]
             if x_pos < 0.40:
-                x_src = 0
-                cw_src = w
+                x_src, cw_src = 0, w
             elif x_pos > 0.60:
-                x_src = int(w * 0.33)
-                cw_src = int(w * 0.67)
+                x_src, cw_src = int(w * 0.33), int(w * 0.67)
             else:
-                x_src = 0
-                cw_src = w
-            cw_src = min(cw_src, w - x_src)
-            cw_src = cw_src // 2 * 2
+                x_src, cw_src = 0, w
+            cw_src = min(cw_src, w - x_src) // 2 * 2
             graf.append(f"[va]crop={cw_src}:{ch_src}:{x_src}:{y_src},scale=720:720:flags=lanczos,setsar=1[fc]")
 
-            # Gameplay: TETEP LANDSCAPE 4:3
-            graf.append(f"[vb]crop=min(iw\\,ih*4/3):min(ih\\,iw*3/4),scale=1080:840:flags=lanczos,setsar=1[game_scaled]")
+            # Gameplay: tetap landscape, crop 4:3
+            graf.append("[vb]crop=min(iw\\,ih*4/3):min(ih\\,iw*3/4),scale=1080:840:flags=lanczos,setsar=1[game_scaled]")
 
-            # Susun: facecam di tengah atas, gameplay di bawah, sisanya hitam
-            fc_x = (1080 - 720) // 2
-            graf.append(f"[game_scaled][fc]overlay=x={fc_x}:y=0[vid_base]")
-            graf.append(f"[vid_base]pad=1080:1920:0:0:color=black[vid]")
+        # Kanvas hitam, facecam di tengah atas (y=0), gameplay di bawah (y=720)
+        fc_x = (1080 - 720) // 2
+        graf.append(f"color=c=black:s=1080x1920:d={durasi:.2f}[bg]")
+        graf.append(f"[bg][fc]overlay=x={fc_x}:y=0[t1]")
+        graf.append("[t1][game_scaled]overlay=x=0:y=720[vid]")
 
     elif rasio == "9:16":
         if fokus == "auto":
@@ -1370,7 +1381,7 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
             except OSError:  # Windows tanpa izin symlink → salin
                 import shutil as _sh
                 _sh.copytree(FONT_DIR, fdir)
-        graf.append(f"[{v}]subtitles=filename='{ass.name}':fontsdir=font[vout]" if (ada_audio(file) and kal) else f"[{v}]null[vout]")
+        graf.append(f"[{v}]subtitles=filename='{ass.name}':fontsdir='{FONT_DIR}'[vout]" if (ada_audio(file) and kal) else f"[{v}]null[vout]")
     else:
         graf.append(f"[{v}]null[vout]")
 
@@ -1458,12 +1469,13 @@ def muat_transkrip(file: Path, a, kerja: Path) -> list[Kalimat]:
     if not ada_audio(file):
         log("Tidak ada audio di video → subtitle dilewati.")
         return []
-    cache = kerja / f"transkrip-{file.stem}-{a.model}.json"
+    cache = kerja / f"transkrip-{file.stem}-{a.model}-b{getattr(a, 'beam', 5)}.json"
     if cache.exists():
         log("Transkrip diambil dari cache.")
         return [Kalimat(k["mulai"], k["selesai"], k["teks"], [Kata(**x) for x in k["kata"]])
                 for k in json.loads(cache.read_text(encoding="utf-8"))]
-    kal = transkrip(file, a.model, None if a.bahasa in ("auto", "", None) else a.bahasa)
+    kal = transkrip(file, a.model, None if a.bahasa in ("auto", "", None) else a.bahasa,
+                    getattr(a, "beam", 5), getattr(a, "potong", 0))
     cache.write_text(json.dumps([asdict(k) for k in kal], ensure_ascii=False), encoding="utf-8")
     return kal
 
@@ -1597,6 +1609,8 @@ def main() -> None:
     p.add_argument("--jumlah", type=int, default=3, help="jumlah klip (default 3)")
     p.add_argument("--durasi", type=int, default=30, help="target detik per klip (default 30)")
     p.add_argument("--model", default="small", help="model whisper: tiny/base/small/medium/large-v3")
+    p.add_argument("--beam", type=int, default=5, help="beam size whisper: 1=greedy (cepat, RAM kecil), 5=akurasi (lambat, RAM besar)")
+    p.add_argument("--potong", type=int, default=0, help="pecah audio jadi chunk N detik saat transkripsi (0=off). Wajib untuk model besar di RAM kecil")
     p.add_argument("--bahasa", default="id", help="kode bahasa, mis. id atau en; 'auto' = deteksi otomatis (default id)")
     p.add_argument("--keluar", default="hasil-klip", help="folder hasil")
     p.add_argument("--tanpa-wajah", action="store_true", help="bingkai tengah, jangan ikuti wajah")
