@@ -172,6 +172,9 @@ def jalan(cmd: list[str], cwd: Path | None = None, label: str = "bekerja", kerin
         return 0
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
+    kunci = baca_kunci()
+    if kunci and not env.get("GEMINI_API_KEY"):
+        env["GEMINI_API_KEY"] = kunci      # kunci dari .env/pengaturan ikut ke proses anak
     print()
     proses = subprocess.Popen(cmd, cwd=str(cwd or AKAR), env=env, text=True,
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
@@ -219,15 +222,46 @@ def uv_cmd() -> str:
     return shutil.which("uv") or str(Path.home() / ".local/bin/uv")
 
 
-def baca_kunci() -> str:
-    """Ambil GEMINI_API_KEY dari klip/.env atau environment."""
-    if os.environ.get("GEMINI_API_KEY"):
-        return os.environ["GEMINI_API_KEY"].strip()
-    if KUNCI_ENV.exists():
-        for baris in KUNCI_ENV.read_text(encoding="utf-8").splitlines():
-            if baris.strip().startswith("GEMINI_API_KEY"):
-                return baris.split("=", 1)[1].strip().strip('"').strip("'")
+PENGATURAN = Path(os.environ.get("STUDIO_DATA") or (Path.home() / "Studio Maliki")) / "pengaturan.env"
+
+
+def _dari_berkas(f: Path, nama: str) -> str:
+    if not f.exists():
+        return ""
+    try:
+        isi = f.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    for baris in isi.splitlines():
+        b = baris.strip()
+        if b.startswith(nama + "="):
+            return b.split("=", 1)[1].strip().strip('"').strip("'")
     return ""
+
+
+def sumber_kunci() -> tuple[str, str]:
+    """Cari GEMINI_API_KEY: environment → klip/.env → pengaturan web UI.
+
+    Kunci dari web UI (Pengaturan AI) tersimpan di ~/Studio Maliki/pengaturan.env,
+    jadi tidak perlu mengisi ulang di terminal.
+    """
+    v = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    if v:
+        return v, "environment"
+    for f, label in ((KUNCI_ENV, "klip/.env"), (PENGATURAN, "pengaturan web UI")):
+        v = _dari_berkas(f, "GEMINI_API_KEY")
+        if v:
+            return v, label
+    return "", ""
+
+
+def baca_kunci() -> str:
+    return sumber_kunci()[0]
+
+
+def kunci_valid(kunci: str) -> bool:
+    """Kunci Gemini baru berformat `AQ.…`; jangan menolak titik/garis."""
+    return len(kunci) >= 20 and not re.search(r"\s", kunci) and all(33 <= ord(c) < 127 for c in kunci)
 
 
 def simpan_kunci(kunci: str) -> None:
@@ -455,9 +489,11 @@ def alur_motion(kering: bool = False) -> None:
 # ── alur 3: kunci AI ────────────────────────────────────────────────────────
 def alur_kunci() -> None:
     judul("Kunci AI (Gemini)")
-    kunci = baca_kunci()
+    kunci, asal = sumber_kunci()
     if kunci:
-        ok("sudah tersimpan (" + kunci[:6] + "…" + kunci[-4:] + ")")
+        ok("terbaca dari " + asal + " (" + kunci[:6] + "…" + kunci[-4:] + ")")
+        if asal != "klip/.env":
+            info("sudah dipakai otomatis; menempel di sini akan menyalinnya ke klip/.env")
     else:
         info("belum ada — tanpa kunci, pemilih momen memakai heuristik lokal.")
     print()
@@ -470,10 +506,15 @@ def alur_kunci() -> None:
     except (EOFError, KeyboardInterrupt):
         print()
         return
+    if bukan := baru.strip().strip('"').strip("'"):
+        baru = bukan
+    if baru.startswith("GEMINI_API_KEY="):
+        baru = baru.split("=", 1)[1].strip().strip('"').strip("'")
     if not baru:
         return
-    if not re.fullmatch(r"[A-Za-z0-9_\-]{20,}", baru):
-        gagal("Bentuknya tidak seperti kunci Gemini (terlalu pendek / ada spasi).")
+    if not kunci_valid(baru):
+        gagal(f"Kunci tidak valid ({len(baru)} karakter, {len(baru.split())} kata).")
+        info("Tempel hanya nilainya, mis. AQ.Ab8… atau AIza… — tanpa spasi dan tanpa 'GEMINI_API_KEY='.")
         return
     simpan_kunci(baru)
     ok(f"disimpan di {KUNCI_ENV.relative_to(AKAR)} (hanya bisa dibaca kamu)")
@@ -516,7 +557,8 @@ def menu() -> None:
         return
 
     while True:
-        kunci = "ada" if baca_kunci() else "belum ada"
+        kunci_ada, kunci_asal = sumber_kunci()
+        kunci = f"ada ({kunci_asal})" if kunci_ada else "belum ada"
         node = "ada" if shutil.which("node") else "tidak ada"
         print()
         garis()

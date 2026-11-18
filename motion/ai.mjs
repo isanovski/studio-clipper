@@ -14,8 +14,11 @@ export const berhenti = (m) => {
 
 export function bacaEnv() {
   const env = {};
-  if (existsSync('.env')) {
-    for (const baris of readFileSync('.env', 'utf8').split('\n')) {
+  // kunci dari web UI ada di ~/Studio Maliki/pengaturan.env; .env di folder ini menimpanya
+  const data = process.env.STUDIO_DATA ?? join(homedir(), 'Studio Maliki');
+  for (const berkas of [join(data, 'pengaturan.env'), '.env']) {
+    if (!existsSync(berkas)) continue;
+    for (const baris of readFileSync(berkas, 'utf8').split('\n')) {
       const m = baris.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
       if (m) env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
     }

@@ -257,11 +257,18 @@ TRANSKRIP:
 
 # ── 4c. AI milik pengguna (Gemini / Claude / OpenAI-compatible seperti Ollama) ─
 def baca_env() -> dict:
-    """Baca .env di folder skrip lalu timpa dengan variabel lingkungan."""
+    """Baca pengaturan Studio lalu .env di folder skrip, timpa dengan variabel lingkungan.
+
+    Kunci yang diisi lewat web UI tersimpan di ~/Studio Maliki/pengaturan.env,
+    sedangkan yang diisi lewat CLI tersimpan di klip/.env. Keduanya dibaca
+    supaya tidak perlu mengisi dua kali.
+    """
     import os
     env = {}
-    f = Path(__file__).with_name(".env")
-    if f.exists():
+    data = Path(os.environ.get("STUDIO_DATA") or (Path.home() / "Studio Maliki"))
+    for f in (data / "pengaturan.env", Path(__file__).with_name(".env")):
+        if not f.exists():
+            continue
         for baris in f.read_text(encoding="utf-8").splitlines():
             if "=" in baris and not baris.strip().startswith("#"):
                 k, v = baris.split("=", 1)

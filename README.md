@@ -123,6 +123,30 @@ uv run klip/klip.py --uji-ai gemini
 `klip/.gitignore` sudah menutup `.env`, jadi kunci tidak ikut ter-commit. Tetap jangan tempel isinya ke
 chat, issue, atau screenshot.
 
+### Kalau menu bilang "kunci belum ada"
+
+Kunci bisa berada di tiga tempat, dan `./mulai` membaca ketiganya:
+
+| Tempat | Diisi kapan |
+|---|---|
+| variabel lingkungan `GEMINI_API_KEY` | `export …` di terminal, atau Codespace secret |
+| `klip/.env` | lewat `./mulai` → **3 · Kunci AI** |
+| `~/Studio Maliki/pengaturan.env` | lewat **web UI** → Pengaturan AI (kunci yang sama, tidak perlu diisi ulang) |
+
+Cek cepat tanpa menu:
+
+```bash
+uv run klip/klip.py --uji-ai gemini     # → SIAP
+```
+
+Kalau tetap belum terbaca:
+
+- Kunci ditempel di prompt yang salah. Tempel **hanya saat muncul `Kunci:`** di menu 3 (input disembunyikan,
+  jadi layar tampak kosong saat kamu tempel — itu normal).
+- Kunci masih berawalan `GEMINI_API_KEY=` atau terbungkus kutip — sekarang otomatis dibersihkan.
+- Kunci format baru Gemini berawalan `AQ.` (bukan `AIza…`) — diterima; yang penting tanpa spasi/baris baru.
+- Codespace secret baru terbaca setelah codespace **stop → start** (restart saja tidak cukup).
+
 ## Jalan di laptop (web UI)
 
 Menu CLI di atas sudah cukup, tapi kalau mau tampilan web:
