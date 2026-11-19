@@ -149,6 +149,21 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
         <button data-v="gamer">Gamer (teriakan + reaksi wajah + aksi game)</button>
       </div>
     </div>
+    <div style="margin-top:12px;">
+      <label>AI produksi <em>hybrid: AI + sinyal gaming lokal</em></label>
+      <div class="pil" id="pilAI">
+        <button data-v="lokal" class="aktif">Lokal (tanpa AI)</button>
+        <button data-v="openrouter">OpenRouter free</button>
+      </div>
+    </div>
+    <div id="bAITahap" style="margin-top:10px;display:none;">
+      <label style="border:none;padding-top:0">Tahap AI</label>
+      <div class="pil" id="pilAITahap">
+        <button data-v="skor,hook" class="aktif">Pilih momen + metadata</button>
+        <button data-v="skor,hook,transkrip">+ Koreksi transkrip</button>
+        <button data-v="skor,hook,transkrip,qc">Semua tahap</button>
+      </div>
+    </div>
     <div class="aksi" style="margin-top:16px">
       <button class="tombol utama" id="tblKlip">Analisis &amp; pilih momen</button>
     </div>
@@ -228,12 +243,18 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
     <button class="pny aktif" data-v="lokal"><b>Lokal</b><small>Rumus heatmap, energi suara, kata hook. Tanpa daftar.</small><span style="color:#84c46b;font-weight:bold">GRATIS</span></button>
     <button class="pny" data-v="gemini"><b>Google Gemini</b><small>Kunci gratis dari Google AI Studio.</small><span style="color:#84c46b;font-weight:bold">ADA KUOTA GRATIS</span></button>
     <button class="pny" data-v="openai"><b>Ollama / OpenAI</b><small>AI di laptop sendiri atau OpenAI, OpenRouter, Groq.</small><span style="color:#9aa3ad;font-weight:bold">GRATIS / SESUAI</span></button>
+    <button class="pny" data-v="openrouter"><b>OpenRouter (model FREE)</b><small>Rantai model gratis OpenRouter untuk semua tahap produksi: pilih momen, hook, caption, QC.</small><span style="color:#84c46b;font-weight:bold">GRATIS</span></button>
     <button class="pny" data-v="langganan"><b>Pakai langganan</b><small>Claude Pro/Max, ChatGPT Plus/Pro lewat CLI resmi. Tanpa kunci API.</small><span style="color:#f5a524;font-weight:bold">PAKAI LANGGANANMU</span></button>
   </div>
   <div class="kunci" id="kunciGemini" style="margin-top:16px;">
     <h2 style="margin:0 0 10px;font-size:15px;font-weight:600">Gemini API key</h2>
     <input class="input" id="GEMINI_API_KEY" type="password" placeholder="AIza…" autocomplete="off">
     <div class="catatan" style="margin-top:6px;font-size:12px;color:#9aa3ad">Ambil kunci gratis di <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#1d4ed8">aistudio.google.com/apikey</a></div>
+  </div>
+  <div class="kunci" id="kunciOpenRouter" style="margin-top:16px;display:none;">
+    <h2 style="margin:0 0 10px;font-size:15px;font-weight:600">OpenRouter API key</h2>
+    <input class="input" id="OPENROUTER_API_KEY" type="password" placeholder="sk-or-v1-…" autocomplete="off">
+    <div class="catatan" style="margin-top:6px;font-size:12px;color:#9aa3ad">Buat key gratis di <a href="https://openrouter.ai/keys" target="_blank" style="color:#1d4ed8">openrouter.ai/keys</a>. Hanya model <code>:free</code> yang dipakai.</div>
   </div>
   <div class="aksi" style="margin-top:16px">
     <button class="tombol utama" id="tblSimpan">Simpan pengaturan</button>
@@ -267,7 +288,9 @@ let facecamPath='';
 $('#tblFacecam').onclick=()=>$('#pilihFacecam').click();
 $('#pilihFacecam').onchange=async(e)=>{const f=e.target.files[0];if(!f)return;const r=await fetch('/api/unggah',{method:'POST',headers:{'X-Nama-File':f.name,'X-Jenis':'aset'},body:f});const j=await r.json();facecamPath=j.jalur;$('#nFacecam').textContent=f.name;toast('Facecam tersimpan: '+f.name);};
 $('#pilMomen').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilMomen button').forEach(x=>x.classList.toggle('aktif',x===b));};
-$('#tblKlip').onclick=async()=>{const sumber=$('#sumber').value.trim();if(!sumber)return toast('Isi link YouTube atau pilih file video',true);const d={sumber,jumlah:+$('#pilDurasi .aktif').dataset.v,durasi:+$('#pilDurasi .aktif').dataset.v,layout:$('#pilLayout .aktif').dataset.v,face_mode:$('#pilFace .aktif').dataset.v,face_x:+$('#gFaceX').value/100,momen:$('#pilMomen .aktif').dataset.v};if($('#arahan').value)d.arahan=$('#arahan').value;if(d.layout==='gamer'&&facecamPath)d.facecam=facecamPath;try{await api('/api/klip',d);toast('Menganalisis video…');}catch(e){toast(e.message,true);}};
+$('#pilAI').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilAI button').forEach(x=>x.classList.toggle('aktif',x===b));$('#bAITahap').style.display=b.dataset.v==='lokal'?'none':'';};
+$('#pilAITahap').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilAITahap button').forEach(x=>x.classList.toggle('aktif',x===b));};
+$('#tblKlip').onclick=async()=>{const sumber=$('#sumber').value.trim();if(!sumber)return toast('Isi link YouTube atau pilih file video',true);const d={sumber,jumlah:+$('#pilDurasi .aktif').dataset.v,durasi:+$('#pilDurasi .aktif').dataset.v,layout:$('#pilLayout .aktif').dataset.v,face_mode:$('#pilFace .aktif').dataset.v,face_x:+$('#gFaceX').value/100,momen:$('#pilMomen .aktif').dataset.v,ai:$('#pilAI .aktif').dataset.v,ai_tahap:$('#pilAI .aktif').dataset.v==='lokal'?'': $('#pilAITahap .aktif').dataset.v};if($('#arahan').value)d.arahan=$('#arahan').value;if(d.layout==='gamer'&&facecamPath)d.facecam=facecamPath;try{await api('/api/klip',d);toast('Menganalisis video…');}catch(e){toast(e.message,true);}};
 
 // ---- MOTION ----
 $('#pilIsi').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilIsi button').forEach(x=>x.classList.toggle('aktif',x===b));$('#isiTopik').hidden=b.dataset.v!=='topik';$('#isiNaskah').hidden=b.dataset.v!=='naskah';};
@@ -275,8 +298,10 @@ $('#pilGaya').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('
 $('#tblMotion').onclick=async()=>{const topik=$('#topik').value.trim();const naskah=$('#naskahJSON').value.trim();if(!topik&&!naskah)return toast('Isi topik atau tempel naskah JSON',true);const gaya=$('#pilGaya .aktif').dataset.v;try{await api('/api/motion',{topik,naskah:naskah||'',gaya});toast('Membuat video…');}catch(e){toast(e.message,true);}};
 
 // ---- PENGATURAN ----
-async function muatPengaturan(){try{const j=await api('/api/pengaturan');$$('#pilPenyedia button').forEach(b=>b.classList.toggle('aktif',b.dataset.v===j.pengaturan.AI));$('#GEMINI_API_KEY').value='';$('#GEMINI_API_KEY').placeholder=j.pengaturan.GEMINI_API_KEY?'tersimpan (isi untuk mengganti)':'';}catch{}}
-$('#tblSimpan').onclick=async()=>{try{await api('/api/pengaturan',{AI:$('#pilPenyedia .aktif').dataset.v,GEMINI_API_KEY:$('#GEMINI_API_KEY').value});toast('Disimpan ✓');}catch(e){toast(e.message,true);}};
+async function muatPengaturan(){try{const j=await api('/api/pengaturan');$$('#pilPenyedia button').forEach(b=>b.classList.toggle('aktif',b.dataset.v===j.pengaturan.AI));$('#GEMINI_API_KEY').value='';$('#GEMINI_API_KEY').placeholder=j.pengaturan.GEMINI_API_KEY?'tersimpan (isi untuk mengganti)':'';$('#OPENROUTER_API_KEY').value='';$('#OPENROUTER_API_KEY').placeholder=j.pengaturan.OPENROUTER_API_KEY?'tersimpan (isi untuk mengganti)':'';tampilKunciAI();}catch{}}
+function tampilKunciAI(){const v=$('#pilPenyedia .aktif').dataset.v;$('#kunciGemini').style.display=v==='gemini'?'':'none';$('#kunciOpenRouter').style.display=v==='openrouter'?'':'none';}
+$('#pilPenyedia').onclick=()=>{setTimeout(tampilKunciAI,0);};
+$('#tblSimpan').onclick=async()=>{try{await api('/api/pengaturan',{AI:$('#pilPenyedia .aktif').dataset.v,GEMINI_API_KEY:$('#GEMINI_API_KEY').value,OPENROUTER_API_KEY:$('#OPENROUTER_API_KEY').value});toast('Disimpan ✓');}catch(e){toast(e.message,true);}};
 $('#tblUji').onclick=async()=>{const b=$('#tblUji');b.disabled=true;b.textContent='Menguji…';try{const r=await api('/api/uji-ai',{penyedia:$('#pilPenyedia .aktif').dataset.v});$('#hasilUji').innerHTML=`<div style="padding:10px;border-radius:8px;font-size:13px;">${r.ok?'✓ Tersambung':'✕ Belum tersambung'} · ${esc(r.pesan)}</div>`;}catch(e){$('#hasilUji').innerHTML=`<div style="padding:10px;border-radius:8px;font-size:13px;color:#ef6a5f;">✕ ${esc(e.message)}</div>`;}b.disabled=false;b.textContent='Uji koneksi';};
 
 // ---- RIWAYAT ----

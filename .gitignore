@@ -9,6 +9,14 @@ klip.json
 prompt-claude.md
 gambar.jpg
 
+# kunci API — jangan pernah masuk git
+klip/.env
+.env
+pengaturan.env
+
+# bahan video lokal (besar) — jangan di-push
+contoh/
+
 # sisa import python
 __pycache__/
 *.pyc

@@ -58,9 +58,11 @@ PORT = int(os.environ.get("STUDIO_PORT", "8787"))
 # HOST=0.0.0.0 → bisa dibuka dari HP di Wi-Fi yang sama (opt-in, bawaan tetap lokal saja)
 HOST = os.environ.get("STUDIO_HOST", "127.0.0.1")
 KUNCI = ["SUARA", "VOXCPM_MODE", "VOXCPM_DESAIN", "AI", "LANGGANAN", "OPENCODE_MODEL", "CLAUDE_CODE_MODEL", "CODEX_MODEL", "GEMINI_API_KEY", "GEMINI_MODEL",
-         "OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL", "SUARA_MAC", "TEMA", "PIXABAY_API_KEY"]
+         "OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL", "OPENROUTER_API_KEY", "OPENROUTER_BASE_URL", "OPENROUTER_MODELS",
+         "SUARA_MAC", "TEMA", "PIXABAY_API_KEY"]
 BAWAAN = {"SUARA": "bawaan", "VOXCPM_MODE": "bawaan", "AI": "lokal", "LANGGANAN": "claude-code", "GEMINI_MODEL": "gemini-3.8-flash",
-          "OPENAI_BASE_URL": "http://localhost:11434/v1", "OPENAI_MODEL": "gemma3:4b", "SUARA_MAC": "Damayanti"}
+          "OPENAI_BASE_URL": "http://localhost:11434/v1", "OPENAI_MODEL": "gemma3:4b",
+          "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1", "SUARA_MAC": "Damayanti"}
 
 
 def baca_pengaturan() -> dict:
@@ -402,6 +404,8 @@ def mulai_klip(d: dict) -> dict:
         cmd += ["--face-x", str(d["face_x"])]
     if d.get("momen"):
         cmd += ["--momen", d["momen"]]
+    if d.get("ai_tahap"):
+        cmd += ["--ai-tahap", d["ai_tahap"]]
     cmd.append("--hanya-analisis")
     if d.get("arahan"):
         cmd += ["--arahan", d["arahan"]]
@@ -446,6 +450,8 @@ def mulai_render_klip(d: dict) -> dict:
                 gaya["fokus"] = p["face_mode"]
             if p.get("face_x") is not None and gaya.get("face_x") is None:
                 gaya["face_x"] = p["face_x"]
+            if p.get("ai_tahap") and not gaya.get("ai_tahap"):
+                gaya["ai_tahap"] = p["ai_tahap"]
         except (json.JSONDecodeError, OSError):
             pass
     # judul banner hasil suntingan pengguna

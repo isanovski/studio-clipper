@@ -610,6 +610,373 @@ def ambil_json(teks: str):
     return json.loads(m.group(0))
 
 
+# ── 4d. AI produksi multi-tahap ─────────────────────────────────────────────
+# Tahap: transkrip → skor → pilih → hook → layout → qc
+# Semua opsional: kalau AI gagal/tidak ada kunci, pipeline lanjut pakai heuristik lokal.
+# Provider "openrouter" memakai rantai model FREE (OpenRouter free tier), fallback otomatis
+# saat 429 (rate limit free) / 503 (upstream sibuk).
+TAHAP_AI = ("transkrip", "skor", "hook", "layout", "qc")
+
+MODEL_OR_FREE = (
+    "nvidia/nemotron-3-ultra-550b-a55b:free",     # reasoning terbaik
+    "recursive/flint-v1.0:free",                  # cepat +-ranked bagus
+    "cohere/north-mini-code:free",                # paling cepat
+    "nvidia/nemotron-3.5-lightning:free",         # cadangan
+    "dots-studio/dots-3-note-preview:free",
+    "particle-ai/particle-1:free",
+    "liquid/lfm-3-1.7b:free",
+    "baidu/ernie-5.5-flash-preview:free",
+)
+
+
+def ai_tahap_aktif(tahap: str, g: dict) -> bool:
+    """Tahap AI aktif? Default: semua aktif kalau penyedia AI bukan 'lokal'.
+    Atur per tahap dengan --ai-tahap "skor,hook" atau matikan total dengan "off"."""
+    daftar = str(g.get("ai_tahap") or "").strip()
+    if daftar.lower() in ("off", "0", "none"):
+        return False
+    if daftar:
+        return tahap in [x.strip() for x in daftar.split(",") if x.strip()]
+    return True
+
+
+def ai_siap(penyedia: str, g: dict) -> bool:
+    """Apakah ada penyedia AI yang bisa dipakai sekarang."""
+    if not penyedia or penyedia == "lokal":
+        return False
+    env = baca_env()
+    if penyedia == "openrouter":
+        return bool(env.get("OPENROUTER_API_KEY") or env.get("OPENAI_API_KEY"))
+    if penyedia == "gemini":
+        return bool(env.get("GEMINI_API_KEY"))
+    return True
+
+
+def tanya_openrouter(prompt: str, env: dict) -> str:
+    """Rantai model free OpenRouter. 429/503 → coba model berikutnya (free tier rate-limited)."""
+    import urllib.error
+    import urllib.request
+    base = (env.get("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").rstrip("/")
+    key = env.get("OPENROUTER_API_KEY") or env.get("OPENAI_API_KEY")
+    if not key:
+        raise RuntimeError("OPENROUTER_API_KEY belum diisi")
+    rantai = [m.strip() for m in (env.get("OPENROUTER_MODELS") or ",".join(MODEL_OR_FREE)).split(",") if m.strip()]
+    galat = ""
+    for model in rantai:
+        for _ in range(2):
+            try:
+                data = json.dumps({"model": model, "messages": [{"role": "user", "content": prompt}],
+                                   "temperature": 0, "stream": False}).encode()
+                req = urllib.request.Request(base + "/chat/completions", data=data, headers={
+                    "Content-Type": "application/json", "Authorization": f"Bearer {key}",
+                    "HTTP-Referer": "https://studio.onegate.biz.id", "X-Title": "studio-clipper"})
+                with urllib.request.urlopen(req, timeout=240) as resp:
+                    d = json.loads(resp.read())
+                return d["choices"][0]["message"]["content"]
+            except urllib.error.HTTPError as e:
+                galat = f"{model}: HTTP {e.code}"
+                if e.code in (429, 502, 503, 504):
+                    time.sleep(2)
+                    continue
+                break
+            except Exception as e:  # noqa: BLE001
+                galat = f"{model}: {type(e).__name__} {str(e)[:80]}"
+                break
+    raise RuntimeError(f"semua model OpenRouter gagal → {galat}")
+
+
+def ai_json(penyedia: str, prompt: str, cache: Path | None = None) -> dict | None:
+    """Panggil AI → JSON. Gagal = None (pipeline lanjut dengan fallback lokal), tidak fatal."""
+    if cache and cache.exists():
+        try:
+            return json.loads(cache.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+    try:
+        if penyedia == "openrouter":
+            teks = tanya_openrouter(prompt, baca_env())
+        else:
+            teks = tanya_ai(penyedia, prompt)
+    except SystemExit as e:
+        log(f"   AI berhenti: {str(e)[:140]}")
+        return None
+    except Exception as e:  # noqa: BLE001
+        log(f"   AI gagal: {type(e).__name__}: {str(e)[:140]}")
+        return None
+    m = re.search(r"\[.*\]|\{.*\}", teks, re.S)
+    if not m:
+        log("   AI tidak mengembalikan JSON → pakai fallback lokal.")
+        return None
+    try:
+        hasil = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        log("   JSON AI tidak valid → pakai fallback lokal.")
+        return None
+    if cache:
+        try:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps(hasil, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
+    return hasil
+
+
+def hitung_sinyal(file: Path, facecam: str = "") -> dict:
+    """Sinyal per detik untuk allem: lonjakan suara, reaksi facecam, aksi gameplay."""
+    en = energi_audio(file)
+    sinyal = {"energi": en, "lonjak": normalisasi(lonjakan(en)),
+              "reaksi": np.zeros(1), "aksi": np.zeros(1)}
+    fc = facecam or ""
+    if fc and Path(fc).exists():
+        log("   Menganalisis reaksi facecam (motion frame)…")
+        sinyal["reaksi"] = normalisasi(motion_per_detik(Path(fc)))
+    log("   Menganalisis aksi gameplay (motion frame)…")
+    sinyal["aksi"] = normalisasi(motion_per_detik(file))
+    return sinyal
+
+
+def window_kandidat(kal: list[Kalimat], durasi: float, sinyal: dict, overlap: int = 20) -> list[dict]:
+    """Kandidat window untuk AI: potong transkrip per ~durasi detik, batasnya di kalimat utuh."""
+    if not kal:
+        return []
+    target = max(float(durasi), 20.0)
+    stride = max(target - overlap, target / 2)
+
+    def ambil(sig: np.ndarray, a: float, b: float) -> float:
+        if len(sig) == 0:
+            return 0.0
+        i0 = min(int(max(a, 0)), len(sig) - 1)
+        i1 = min(int(max(b, a + 1)), len(sig))
+        return float(sig[i0:i1].max()) if i1 > i0 else float(sig[i0])
+
+    kandidat: list[dict] = []
+    mulai = kal[0].mulai
+    idx = 1
+    while mulai < kal[-1].selesai:
+        akhir = mulai + target
+        isi = [k for k in kal if k.selesai > mulai and k.mulai < akhir]
+        if not isi:
+            break
+        teks = " ".join(k.teks for k in isi)
+        if len(teks.strip()) < 20:
+            mulai = akhir
+            continue
+        kata = [w for k in isi for w in k.kata]
+        e = ambil(sinyal.get("energi", np.zeros(1)), mulai, akhir)
+        lj = ambil(sinyal.get("lonjak", np.zeros(1)), mulai, akhir)
+        rk = ambil(sinyal.get("reaksi", np.zeros(1)), mulai, akhir)
+        ak = ambil(sinyal.get("aksi", np.zeros(1)), mulai, akhir)
+        kandidat.append({
+            "id": f"w{idx}", "mulai": round(mulai, 2), "selesai": round(isi[-1].selesai, 2),
+            "teks": teks[:1200],
+            "sinyal": {"energi": round(e, 3), "lonjak": round(lj, 3),
+                       "reaksi": round(rk, 3), "aksi": round(ak, 3)},
+            "kata_gaming": sorted({bersih_kata(w.teks) for w in kata if HOOK_GAME.match(bersih_kata(w.teks))})[:8],
+            "interjeksi": sorted({m.group(0).lower() for m in INTERJEKSI.finditer(teks)})[:8],
+        })
+        idx += 1
+        mulai += stride
+    return kandidat
+
+
+def snap_ke_kata(a: float, b: float, kata: list[Kata], jeda: float = 1.5) -> tuple[float, float]:
+    """Geser batas potong ke timestamp kata terdekat supaya tidak potong di tengah kata."""
+    if not kata:
+        return a, b
+    dekat_a = min(kata, key=lambda w: abs(w.mulai - a))
+    dekat_b = min(kata, key=lambda w: abs(w.selesai - b))
+    baru_a = a if abs(dekat_a.mulai - a) > jeda else dekat_a.mulai
+    baru_b = b if abs(dekat_b.selesai - b) > jeda else dekat_b.selesai
+    if baru_b - baru_a < 3:
+        baru_b = baru_a + 3
+    return round(baru_a, 2), round(baru_b, 2)
+
+
+def ai_skor_window(kandidat: list[dict], penyedia: str, cache: Path | None = None) -> dict:
+    """Minta AI menilai tiap window (rubrik 2-second test + bukti sinyal gaming)."""
+    if not kandidat:
+        return {}
+    isi = [{"id": k["id"], "start": k["mulai"], "end": k["selesai"], "text": k["teks"][:700],
+            "signals": k["sinyal"], "gaming_words": k["kata_gaming"], "interjections": k["interjeksi"]}
+           for k in kandidat]
+    prompt = f"""You are a senior short-form video strategist for GAMING content. RANK these candidate windows by how well each would work as a standalone short for TikTok/IG Reels/YouTube Shorts.
+
+Rules:
+- Return only valid JSON, no prose, no markdown fence.
+- Score EVERY window: exactly one entry per input window.
+- `score` must be an integer 0-100.
+- THE 2-SECOND TEST is the main criterion: would the first 2 seconds force a cold viewer (no context) to keep watching? Windows that only work with prior context score low.
+- Prefer windows with strong hooks, conflict, surprise, outrage, emotion, novelty, or a clear payoff.
+- Gaming signal: screaming/excitement, reactions, clutch plays, banter with friends. A window of pure gameplay with NO voice reaction is weaker than a window where the player reacts.
+- These windows carry extra signals measured from audio/facecam/gameplay: REACTION (facecam motion 0-1), ENERGY (audio peak 0-1), SURGE (sudden loudness jump 0-1). Use them as evidence, but the transcript still decides.
+- If the transcript shows narration of something else (a TV show, a news story, a documentary) rather than the player's own reaction, score it LOW.
+
+TRANSCRIPT_LANGUAGE: id
+WINDOWS_JSON:
+{json.dumps(isi, ensure_ascii=False)}
+
+Return only:
+{{"windows":[{{"id":"...","score":<0-100>,"reason":"<short, in Indonesian>"}}]}}"""
+    hasil = ai_json(penyedia, prompt, cache)
+    if not hasil:
+        return {}
+    out: dict = {}
+    for w in hasil.get("windows", []) or []:
+        try:
+            out[str(w["id"])] = {"score": int(w.get("score", 0)), "reason": str(w.get("reason", ""))[:200]}
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def ai_pilih_klip(kandidat: list[dict], skor: dict, kal: list[Kalimat], jumlah: int) -> list[Klip]:
+    """Ubah window + skor AI jadi daftar Klip (tanpa tumpang tindih, batas snap ke kata)."""
+    semua_kata = [w for k in kal for w in k.kata]
+    urut = sorted(kandidat, key=lambda k: skor.get(k["id"], {}).get("score", 0), reverse=True)
+    terpilih: list[Klip] = []
+    for k in urut:
+        s = skor.get(k["id"], {})
+        if not s:
+            continue
+        a, b = snap_ke_kata(k["mulai"], k["selesai"], semua_kata)
+        if all(b <= t.mulai or a >= t.selesai for t in terpilih):
+            judul = (k["teks"][:70] or f"Klip {a:.0f}s").strip()
+            alasan = " · ".join(x for x in [s.get("reason", "").strip(), "AI 2-second test"] if x)
+            terpilih.append(Klip(a, b, judul, float(s.get("score", 0)), alasan or "picked by AI"))
+        if len(terpilih) >= jumlah:
+            break
+    return sorted(terpilih, key=lambda c: c.mulai)
+
+
+def ai_polih_transkrip(kal: list[Kalimat], penyedia: str, cache: Path | None = None) -> list[Kalimat]:
+    """Koreksi salah dengar ASR (khusus Indonesia lisan) — timing kata tidak diubah."""
+    if not kal:
+        return kal
+    hasil = ai_json(penyedia, """Perbaiki salah dengar hasil transkripsi otomatis (ASR) bahasa Indonesia lisan.
+Aturan:
+- Return only valid JSON, no prose, no markdown fence.
+- Hanya tulis kalimat yang benar-benar salah dengar (tyo, nama yang kacau, kata slang yang keliru). Kalimat yang sudah benar TIDAK perlu ditulis.
+- Jangan menambah atau menghapus fakta; hanya perbaiki ejaan/kosakata.
+- Batas: 12 kata per kalimat.
+
+Return only:
+{"perbaikan":[{"index":<nomor urut kalimat, mulai dari 1>,"teks":"<kalimat yang diperbaiki>"}]}""", cache)
+    if not hasil:
+        return kal
+    baru = list(kal)
+    for p in hasil.get("perbaikan", []) or []:
+        try:
+            i = int(p["index"]) - 1
+        except (KeyError, TypeError, ValueError):
+            continue
+        if 0 <= i < len(baru) and p.get("teks"):
+            baru[i] = Kalimat(baru[i].mulai, baru[i].selesai, str(p["teks"]).strip(), baru[i].kata)
+    return baru
+
+
+def ai_metadata(klips: list[Klip], penyedia: str, cache: Path | None = None) -> list[dict]:
+    """Buat hook text, judul YouTube, caption IG/TikTok + hashtag, dan alasan Publish-ready."""
+    if not klips:
+        return []
+    ringkas = [{"no": i + 1, "start": k.mulai, "end": k.selesai, "teks": k.judul[:400]}
+               for i, k in enumerate(klips)]
+    prompt = f"""Kamu editor short-form video. Untuk tiap klip di bawah, tulis metadata siap posting.
+
+Aturan:
+- Return only valid JSON, no prose, no markdown fence.
+- SEMUA teks (hook, judul, caption) HARUS dalam Bahasa Indonesia.
+- `hook`: maksimal 10 kata, punchy, TENTANG MOMEN INI (bukan tentang video secara umum). Contoh pola: pertanyaan, hot take, fakta/angka, loop cerita, POV. Boleh 1-2 emoji.
+- `judul_yt`: maksimal 100 karakter, bikin penasaran, jangan klaim palsu.
+- `caption_ig` / `caption_tiktok`: 1-2 kalimat tease tanpa spoiler + 3-5 hashtag yang relevan (jangan spam hashtag generik).
+- `why`: 1 kalimat maksimal 20 kata, menyebut hook/claim/payoff spesifik di klip ini.
+
+KLIPS:
+{json.dumps(ringkas, ensure_ascii=False)}
+
+Return only:
+{{"metadata":[{{"no":1,"hook":"...","judul_yt":"...","caption_ig":"...","caption_tiktok":"...","why":"..."}}]}}"""
+    hasil = ai_json(penyedia, prompt, cache)
+    if not hasil:
+        return []
+    out = []
+    for m in hasil.get("metadata", []) or []:
+        try:
+            no = int(m["no"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        out.append({"no": no, "hook": str(m.get("hook", ""))[:120],
+                    "judul_yt": str(m.get("judul_yt", ""))[:140],
+                    "caption_ig": str(m.get("caption_ig", ""))[:400],
+                    "caption_tiktok": str(m.get("caption_tiktok", ""))[:400],
+                    "why": str(m.get("why", ""))[:200]})
+    return out
+
+
+def ai_pilih_layout(transkrip_ringkas: str, sinyal: dict, penyedia: str, cache: Path | None = None) -> str:
+    """Saran layout dari isi + sinyal (bukan facecam 2-kamera; itu khusus gaming)."""
+    hasil = ai_json(penyedia, f"""Pilih satu layout untukklip video ini.
+Pilihan: "tunggal" (satu pembicara, crop 9:16 mengikuti wajah) · "facecam" (wajah besar di atas, isi layar di bawah) · "pip" (wajah kecil di pojok).
+Return only valid JSON, no prose: {{"layout":"tunggal","reason":"<short>"}}
+
+RINGKASAN TRANSKRIP:
+{transkrip_ringkas[:1500]}
+
+SINYAL: reaksi_wajah={float((sinyal.get('reaksi') or [0])[0]):.2f} aksi_game={float((sinyal.get('aksi') or [0])[0]):.2f}""", cache)
+    if not hasil:
+        return ""
+    return str(hasil.get("layout", ""))[:20]
+
+
+def qc_klip(path: Path, target_durasi: float, layout: str = "") -> dict:
+    """Cek hasil render: durasi, resolusi, audio, band kosong, teks di tengah."""
+    hasil = {"file": path.name, "ok": True, "catatan": []}
+    if not path.exists():
+        return {"file": path.name, "ok": False, "catatan": ["file tidak ada"], "durasi": 0}
+    import subprocess as sp
+    try:
+        info = json.loads(sp.run(["ffprobe", "-v", "error", "-show_entries",
+                                  "format=duration:stream=codec_type,width,height",
+                                  "-of", "json", str(path)], capture_output=True, text=True).stdout or "{}")
+    except json.JSONDecodeError:
+        info = {}
+    dur = float((info.get("format") or {}).get("duration") or 0)
+    hasil["durasi"] = round(dur, 2)
+    vids = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
+    auds = [s for s in info.get("streams", []) if s.get("codec_type") == "audio"]
+    if not vids:
+        hasil["ok"] = False
+        hasil["catatan"].append("tidak ada stream video")
+        return hasil
+    w, h = vids[0].get("width", 0), vids[0].get("height", 0)
+    hasil["resolusi"] = f"{w}x{h}"
+    if (w, h) != (1080, 1920):
+        hasil["catatan"].append(f"resolusi {w}x{h} (harus 1080x1920)")
+    if not auds:
+        hasil["catatan"].append("tidak ada audio")
+    if target_durasi and dur and not (target_durasi * 0.7 <= dur <= target_durasi * 1.4):
+        hasil["catatan"].append(f"durasi {dur:.1f}s jauh dari target {target_durasi:.0f}s")
+    # cek band kosong (hitam total) +igr
+    try:
+        import cv2
+        cap = cv2.VideoCapture(str(path))
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        sample = [int(total * f) for f in (0.15, 0.45, 0.8)] if total else [5]
+        hitam = 0
+        for n in sample:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, max(n, 0))
+            ok, fr = cap.read()
+            if ok and fr is not None and float(fr.std()) < 2.0:
+                hitam += 1
+        cap.release()
+        if sample and hitam == len(sample):
+            hasil["catatan"].append("semua frame sampel hitam")
+    except Exception:  # noqa: BLE001
+        pass
+    if hasil["catatan"]:
+        hasil["ok"] = False
+    return hasil
+
+
 # ── 5. Bingkai: deteksi wajah ───────────────────────────────────────────────
 _YUNET: dict = {}
 
@@ -1687,15 +2054,9 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
 
     ringkasan, hashtag = "", []
     penyedia = (a.ai or baca_env().get("AI", "lokal")).lower()
-    if a.pilihan or penyedia != "lokal":
-        if a.pilihan:
-            data = json.loads(Path(a.pilihan).read_text(encoding="utf-8"))
-            sumber_ai = "pilihan.json"
-        else:
-            log(f"Meminta AI '{penyedia}' memilih momen…")
-            tulis_prompt(kal, a.durasi, a.jumlah, kerja / "prompt.md", a.arahan)
-            data = ambil_json(tanya_ai(penyedia, (kerja / "prompt.md").read_text(encoding="utf-8")))
-            sumber_ai = penyedia
+    if a.pilihan:
+        data = json.loads(Path(a.pilihan).read_text(encoding="utf-8"))
+        sumber_ai = "pilihan.json"
         if isinstance(data, dict):
             ringkasan, hashtag = data.get("ringkasan", ""), data.get("hashtag", [])
             data = data.get("klip", [])
@@ -1713,32 +2074,68 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
         log(f"Memakai {len(klips)} momen dari {sumber_ai}.")
     else:
         mode_momen = getattr(a, "momen", "") or ("gamer" if a.layout == "gamer" else "umum")
-        if mode_momen == "gamer":
+        tahap_ai = ai_tahap_aktif("skor", {"ai_tahap": getattr(a, "ai_tahap", "")})
+        pakai_ai = ai_siap(penyedia, {}) and tahap_ai
+        # Sinyal lokal (energi/lonjakan/reaksi/aksi) dipakai apa adanya:
+        # inilah bukti gaming yang tidak bisa dinilai LLM dari teks saja.
+        sinyal = hitung_sinyal(file, getattr(a, "facecam", "") or "")
+        en = sinyal["energi"]
+        if pakai_ai:
+            log(f"Mode momen HYBRID: heuristik lokal + AI '{penyedia}' (2-second test + sinyal gaming).")
+            kandidat = window_kandidat(kal, a.durasi, sinyal)
+            log(f"   {len(kandidat)} window kandidat dikirim ke AI…")
+            skor_ai = ai_skor_window(kandidat, penyedia, kerja / "ai-skor.json")
+            if skor_ai:
+                # gabungan: skor AI (semantik) + skor heuristik gamer (bukti fisik)
+                skor_heuristik = {}
+                for k in kandidat:
+                    isi = [x for x in kal if x.selesai > k["mulai"] and x.mulai < k["selesai"]]
+                    kata = [w for s in isi for w in s.kata]
+                    hooks = [bersih_kata(w.teks) for w in kata if HOOK_GAME.match(bersih_kata(w.teks))]
+                    skor_heuristik[k["id"]] = (len(set(hooks)) * 9
+                                               + k["sinyal"]["lonjak"] * 20
+                                               + k["sinyal"]["reaksi"] * 22
+                                               + k["sinyal"]["energi"] * 16)
+                gabungan = {}
+                for kid, s in skor_ai.items():
+                    gabungan[kid] = {"score": s["score"] * 0.7 + skor_heuristik.get(kid, 0) * 0.3,
+                                     "reason": s["reason"]}
+                klips = ai_pilih_klip(kandidat, gabungan, kal, a.jumlah)
+                sumber_ai = f"{penyedia}+lokal"
+                log(f"   AI memilih {len(klips)} momen (skor gabungan AI 70% + sinyal gaming 30%).")
+            else:
+                log("   AI tidak memberi skor → pakai heuristik lokal.")
+                klips = (pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
+                                     mode="gamer", sinyal=sinyal) if mode_momen == "gamer"
+                         else pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan))
+                sumber_ai = "lokal"
+        elif mode_momen == "gamer":
             log("Mode momen GAMER: cari teriakan, reaksi wajah, aksi game, dan kata gaming…")
-            en = energi_audio(file)
-            sinyal = {"lonjak": normalisasi(lonjakan(en)),
-                      "reaksi": np.zeros(1), "aksi": np.zeros(1)}
-            # reaksi facecam: motion frame facecam (bisa 2 file: gameplay + facecam)
-            fc = getattr(a, "facecam", None)
-            if fc and Path(fc).exists():
-                log("   Menganalisis reaksi facecam (motion frame)…")
-                m = motion_per_detik(Path(fc))
-                sinyal["reaksi"] = normalisasi(m)
-                log(f"   Reaksi facecam: {len(m)} detik terbaca.")
-            # aksi gameplay: motion frame gameplay (resolusi kecil, murah)
-            log("   Menganalisis aksi gameplay (motion frame)…")
-            mg = motion_per_detik(file)
-            sinyal["aksi"] = normalisasi(mg)
-            log(f"   Aksi gameplay: {len(mg)} detik terbaca.")
             klips = pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
                                 mode="gamer", sinyal=sinyal)
+            sumber_ai = "lokal"
         else:
             log("Mencari momen terbaik (heatmap + energi suara + kepadatan kata + kata hook)…")
-            klips = pilih_momen(kal, energi_audio(file), heatmap, a.durasi, a.jumlah, panjang, a.arahan)
+            klips = pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan)
+            sumber_ai = "lokal"
         hooks = [None] * len(klips)
-        sumber_ai = "lokal"
+
+    # Tahap AI: perbaiki transkrip (in-memory, cache tetap aman) lalu metadata siap posting
+    if ai_siap(penyedia, {}) and ai_tahap_aktif("transkrip", {"ai_tahap": getattr(a, "ai_tahap", "")}) and kal:
+        log("Tahap AI: mengoreksi salah dengar transkrip…")
+        kal = ai_polih_transkrip(kal, penyedia, kerja / "ai-transkrip.json")
+    metadata_ai = []
+    if ai_siap(penyedia, {}) and ai_tahap_aktif("hook", {"ai_tahap": getattr(a, "ai_tahap", "")}) and klips:
+        log("Tahap AI: membuat hook + judul + caption + alasan publish…")
+        metadata_ai = ai_metadata(klips, penyedia, kerja / "ai-metadata.json")
+        if metadata_ai:
+            log(f"   Metadata dibuat untuk {len(metadata_ai)} klip.")
+        else:
+            log("   Metadata AI gagal → pakai judul lokal.")
+
 
     daftar = []
+    peta_meta = {m["no"]: m for m in metadata_ai}
     for i, (k, hk) in enumerate(zip(klips, hooks), 1):
         isi = [x for x in kal if x.selesai > k.mulai and x.mulai < k.selesai]
         k.kutipan = " ".join(x.teks for x in isi)[:400]
@@ -1747,7 +2144,15 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
         if hk is None:
             kena = [x for x in isi if set(re.findall(r"\w+", x.teks.lower())) & KATA_HOOK or "?" in x.teks]
             hk = (kena[0] if kena else (isi[0] if isi else k)).mulai
-        daftar.append({**asdict(k), "no": i, "hook": round(float(hk), 1), "file": ""})
+        baris = {**asdict(k), "no": i, "hook": round(float(hk), 1), "file": ""}
+        meta = peta_meta.get(i)
+        if meta:
+            baris.update({"hook_text": meta.get("hook", ""), "judul_yt": meta.get("judul_yt", ""),
+                          "caption_ig": meta.get("caption_ig", ""), "caption_tiktok": meta.get("caption_tiktok", ""),
+                          "why": meta.get("why", "")})
+            if meta.get("caption_tiktok") and not k.caption:
+                k.caption = meta["caption_tiktok"]
+        daftar.append(baris)
 
     try:
         en = energi_audio(file)
@@ -1802,6 +2207,14 @@ def render_terpilih(keluar: Path, kerja: Path, pilih: str | None, gaya: dict) ->
             log(f"B-roll: {len(sisipan)} sisipan ({', '.join(x['kunci'] for x in sisipan)}).")
         render(file, k, kal, out, kerja, w, h, {**gaya, "_sisipan": sisipan})
         d["file"] = out.name
+        # Tahap QC: cek hasil render (durasi, resolusi, audio, frame hitam)
+        if ai_tahap_aktif("qc", gaya):
+            cek = qc_klip(out, k.selesai - k.mulai, gaya.get("layout", ""))
+            d["qc"] = cek
+            if cek["ok"]:
+                log(f"   QC ✓ {cek.get('durasi')}s {cek.get('resolusi')}")
+            else:
+                log(f"   QC ⚠ {cek['catatan']}")
         d["broll"] = [{"detik": round(x["a"], 1), "kunci": x["kunci"], "file": Path(x["file"]).name} for x in sisipan]
         if kredit:
             d["kredit"] = kredit
@@ -1830,8 +2243,10 @@ def main() -> None:
     p.add_argument("--hanya-prompt", action="store_true", help="Opsi B: tulis prompt Claude lalu berhenti")
     p.add_argument("--pilihan", help="Opsi B: JSON momen dari Claude")
     p.add_argument("--arahan", default="", help="momen yang dicari, mis. 'momen lucu' atau 'tips praktis'")
-    p.add_argument("--ai", default=None, help="pemilih momen: lokal (default), gemini, openai (Ollama dll.), "
-                        "claude-code (langganan Claude), codex (langganan ChatGPT), opencode")
+    p.add_argument("--ai", default=None, help="penyedia AI: lokal (default), openrouter (model FREE), gemini, "
+                        "openai (Ollama dll.), claude-code, codex, opencode")
+    p.add_argument("--ai-tahap", default="", help="tahap AI yang aktif: transkrip,skor,hook,layout,qc | all | off "
+                        "(default: semua, kalau --ai bukan lokal)")
     p.add_argument("--rentang", help="bagian video yang dianalisis, mis. 10:00-25:30")
     p.add_argument("--subtitle-file", help="pakai subtitle .srt sendiri (lewati transkripsi)")
     p.add_argument("--hanya-analisis", action="store_true", help="cari momen tanpa render")
@@ -1862,6 +2277,13 @@ def main() -> None:
         if a.uji_ai == "lokal":
             print("SIAP (mode lokal tidak memakai AI luar)")
             return
+        if a.uji_ai == "openrouter":
+            try:
+                jawab = tanya_openrouter("Balas persis satu kata saja: SIAP", baca_env()).strip()
+            except Exception as e:  # noqa: BLE001
+                sys.exit(f"GAGAL: {type(e).__name__}: {str(e)[:200]}")
+            print(jawab[:200])
+            return
         jawab = tanya_ai(a.uji_ai, "Ini uji sambungan. Balas persis satu kata saja: SIAP").strip()
         print(jawab[:200])
         return
@@ -1875,7 +2297,8 @@ def main() -> None:
             **( {"broll": a.broll, "broll_file": a.broll_file} if a.broll else {}),
             **( {"watermark": a.watermark} if a.watermark else {}),
             **( {"facecam": a.facecam} if a.facecam else {}),
-            **( {"face_x": a.face_x} if a.face_mode == "manual" else {} )}
+            **( {"face_x": a.face_x} if a.face_mode == "manual" else {} ),
+            **( {"ai_tahap": a.ai_tahap} if a.ai_tahap else {} )}
     if a.gaya:
         isi = a.gaya if a.gaya.lstrip().startswith("{") else Path(a.gaya).read_text(encoding="utf-8")
         gaya.update(json.loads(isi))

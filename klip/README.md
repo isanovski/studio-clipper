@@ -56,6 +56,8 @@ Pengguna Claude Pro + Claude Code cukup mengetik: *"jalankan klip.py untuk video
 | `--layout gamer` | facecam kotak di tengah atas + gameplay di bawah (mode 2 kamera gamer) |
 | `--facecam FILE` | file video kamera untuk layout gamer (pakai bersama `--layout gamer`) |
 | `--momen gamer` | preset cari momen khusus gaming: teriakan + reaksi wajah + aksi game + kata gaming |
+| `--ai openrouter` | AI produksi semua tahap memakai model FREE OpenRouter (hybrid AI + sinyal lokal) |
+| `--ai-tahap` | Tahap AI: `transkrip,skor,hook,layout,qc` \| `off` (default: semua kalau `--ai` dipakai) |
 | `--momen umum` | preset cari momen umum: hook kata pemikat + bicara padat (default, ikut layout kalau kosong) |
 | `--beam 1` | decode Whisper greedy (cepat, hemat RAM). Default `5` = beam search (akurasi) |
 | `--potong 120` | pecah audio jadi chunk 120 detik saat transkripsi (wajib untuk model besar di RAM kecil) |

@@ -338,6 +338,73 @@ uv run klip/klip.py video.mp4 --model small --beam 1 --potong 120 --layout gamer
 
 ---
 
+---
+
+## 6e. AI Produksi (semua tahap)
+
+AI bisa nyusup ke **semua tahap produksi**, bukan cuma pilih momen. Tiap tahap opsional dan punya fallback ke heuristik lokal — kalau AI gagal atau tidak ada kunci, pipeline tetap jalan.
+
+| Tahap | Yang dikerjakan AI | Fallback |
+|-------|--------------------|----------|
+| `transkrip` | Koreksi salah dengar ASR (tyo, nama kacau, slang keliru). Timing kata tidak diubah | transkrip mentah |
+| `skor` | Nilai tiap window dengan rubric **2-second test** + bukti sinyal gaming (reaksi facecam, lonjakan suara, aksi game) | skor heuristik lokal |
+| `hook` | Hook text (≤10 kata), judul YouTube, caption IG/TikTok + hashtag, alasan publish | judul lokal |
+| `layout` | Saran layout per proyek (tunggal / facecam / pip) | layout manual |
+| `qc` | Cek hasil render: durasi, resolusi, audio, frame hitam | QC lokal tetap jalan |
+
+### Provider
+
+`--ai openrouter` → **OpenRouter model FREE** (tanpa biaya, tapi rate-limited). Kuncinya di `klip/.env` atau lewat web UI (Pengaturan AI → OpenRouter).
+
+Rantai model free (fallback otomatis saat 429/503), urut kualitas → kecepatan:
+
+```
+nvidia/nemotron-3-ultra-550b-a55b:free   → recursive/flint-v1.0:free
+→ cohere/north-mini-code:free             → nvidia/nemotron-3.5-lightning:free
+→ dots-studio/dots-3-note-preview:free    → particle-ai/particle-1:free
+→ liquid/lfm-3-1.7b:free                  → baidu/ernie-5.5-flash-preview:free
+```
+
+Ganti rantainya sendiri:
+
+```bash
+uv run klip/klip.py video.mp4 --ai openrouter \
+  --gaya '{"ai_tahap":"skor,hook","OPENROUTER_MODELS":"recursive/flint-v1.0:free"}'
+```
+
+### Hybrid: AI + bukti lokal
+
+Skor akhir bukan murni penilaian AI:
+
+```python
+skor = skor_AI * 0.7 + heuristik_gamer * 0.3
+```
+
+Heuristik lokal = kata gaming + lonjakan suara + reaksi facecam + aksi gameplay. Bagian ini yang menangkap momen yang transkripnya jelek ("Gila-gila, keren-keren") — LLM dari teks doang akanrank-nya rendah.
+
+### Contoh pemakaian
+
+```bash
+# hybrid penuh: pilih momen + metadata
+uv run klip/klip.py gameplay.mp4 --layout gamer --facecam kamera.mp4 \
+  --momen gamer --ai openrouter --ai-tahap skor,hook
+
+# semua tahap
+uv run klip/klip.py gameplay.mp4 --layout gamer --facecam kamera.mp4 \
+  --momen gamer --ai openrouter --ai-tahap skor,hook,transkrip,qc
+
+# matikan total AI (heuristik lokal saja)
+uv run klip/klip.py gameplay.mp4 --momen gamer --ai-tahap off
+```
+
+Di web UI: tombol **"AI produksi"** (Lokal / OpenRouter free) + pilihan tahap. Di `./mulai`: prompts yang sama.
+
+Hasil AI disimpan di `klip.json` per klip: `hook_text`, `judul_yt`, `caption_ig`, `caption_tiktok`, `why`, dan `qc` (hasil cek render).
+
+> Batas free tier: 429 (rate limit) sering kena kalau request paralel. Rantai fallback otomatis pindah model; hasil tiap tahap di-cache di `.kerja/ai-*.json` jadi tidak bayar dua kali.
+
+---
+
 ## 7. Kunci AI (Gemini) — Opsional
 
 Tanpa kunci, pemilih momen pakai **lokal** (gratis, kualitas lebih sederhana). Kunci hanya perlu kalau mau `--ai gemini` atau bikin naskah Motion dengan AI.

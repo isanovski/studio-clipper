@@ -387,13 +387,18 @@ def alur_klip(kering: bool = False) -> None:
     jumlah = tanya("Jumlah klip", "3")
     durasi = tanya("Durasi tiap klip (detik)", "30")
     print()
-    ai_ke = pilih("Pemilih momen", ["lokal (gratis, tanpa kunci)", "gemini (butuh kunci)"], 0)
-    ai = "lokal" if ai_ke == 0 else "gemini"
+    ai_ke = pilih("AI produksi", ["lokal (gratis, tanpa AI)", "openrouter (model FREE)", "gemini (butuh kunci)"], 0)
+    ai = ["lokal", "openrouter", "gemini"][ai_ke]
+    ai_tahap = ""
+    if ai != "lokal":
+        tap_ke = pilih("Tahap AI", ["pilih momen + metadata", "+ koreksi transkrip", "semua tahap (tambah QC)"], 0)
+        ai_tahap = ["skor,hook", "skor,hook,transkrip", "skor,hook,transkrip,qc"][tap_ke]
     if ai == "gemini" and not baca_kunci():
         gagal("Kunci Gemini belum ada. Pilih menu 3 dulu, atau lanjut dengan lokal.")
         if not ya("Lanjut pakai lokal?", True):
             return
         ai = "lokal"
+        ai_tahap = ""
     print()
     arahan = tanya("Cari momen tertentu? (kosong = bebas)", "")
     print()
@@ -455,6 +460,8 @@ def alur_klip(kering: bool = False) -> None:
         cmd += ["--facecam", facecam]
     if momen:
         cmd += ["--momen", momen]
+    if ai_tahap:
+        cmd += ["--ai-tahap", ai_tahap]
     kode = jalan(cmd, label="menganalisis & merender", kering=kering)
     if kode != 0:
         print()
