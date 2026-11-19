@@ -491,6 +491,77 @@ KATA_STOP = {
 }
 
 
+def ai_pilih_momen_utama(kal: list[Kalimat], durasi: float, jumlah: int,
+                         arahan: str = "", penyedia: str = "",
+                         cache: Path | None = None) -> list[Klip] | None:
+    """AI utama pilih momen terbaik dari semua teks Whisper.
+
+    Kirim semua kalimat dengan timestamp ke AI. AI memilih jumlah momen
+    yang paling menarik, tidak tumpang tindih, dan bisa berdiri sendiri.
+    Return None jika AI gagal (caller pakai fallback lokal).
+    """
+    if not kal or not penyedia:
+        return None
+
+    # Siapkan teks dengan timestamp untuk AI
+    segment = []
+    for k in kal:
+        segment.append(f"[{k.mulai:.0f}s - {k.selesai:.0f}s] {k.teks}")
+
+    teks_gabungan = "\n".join(segment[:300])  # batasi agar prompt tidak terlalu panjang
+
+    arahan_str = f"\nArahan pengguna: {arahan}" if arahan else ""
+
+    prompt = f"""Anda adalah editor video pendek (TikTok/Reels/Shorts) senior.
+
+Berikut adalah transkrip lengkap video dengan timestamp (detik):
+{teks_gabungan}
+
+Pilih {jumlah} momen terbaik untuk dibuat klip pendek, masing-masing sekitar {durasi} detik.
+
+Kriteria wajib:
+1. 2-DETIK TEST: 2 detik pertama harus membuat penonton baru (tanpa konteks) ingin terus nonton.
+2. STANDS ALONE: klip harus bisa dipahami tanpa konteks sebelumnya. Hindari awalan dengan "ini", "itu", "ya", "nah".
+3. Tidak tumpang tindih waktu satu sama lain.
+4. Bawa judul singkat dan alasan singkat (Bahasa Indonesia).{arahan_str}
+
+Output HANYA JSON valid, tanpa prose, tanpa markdown fence:
+[
+  {{"mulai": 120.5, "selesai": 180.5, "judul": "...", "alasan": "..."}},
+  ...
+]
+"""
+
+    hasil = ai_json(penyedia, prompt, cache)
+    if not hasil:
+        return None
+
+    data = hasil if isinstance(hasil, list) else hasil.get("momen", [])
+    if not isinstance(data, list) or not data:
+        return None
+
+    klips: list[Klip] = []
+    for item in data[:jumlah]:
+        try:
+            klips.append(Klip(
+                round(float(item["mulai"]), 2),
+                round(float(item["selesai"]), 2),
+                str(item.get("judul", f"Klip {item['mulai']:.0f}s")).strip(),
+                80,  # skor default AI utama
+                str(item.get("alasan", "pilihan AI"))
+            ))
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    if not klips:
+        return None
+
+    # Urutkan berdasarkan waktu mulai
+    klips.sort(key=lambda k: k.mulai)
+    log(f"   AI utama memilih {len(klips)} momen dari teks Whisper.")
+    return klips
+
+
 def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
                 durasi: float, jumlah: int, panjang_video: float, arahan: str = "",
                 mode: str = "umum", sinyal: dict | None = None) -> list[Klip]:
@@ -2237,30 +2308,17 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
         sinyal = hitung_sinyal(file, getattr(a, "facecam", "") or "")
         en = sinyal["energi"]
         if pakai_ai:
-            log(f"Mode momen HYBRID: heuristik lokal + AI '{penyedia}' (2-second test + sinyal gaming).")
-            kandidat = window_kandidat(kal, a.durasi, sinyal)
-            log(f"   {len(kandidat)} window kandidat dikirim ke AI…")
-            skor_ai = ai_skor_window(kandidat, penyedia, kerja / "ai-skor.json")
-            if skor_ai:
-                # gabungan: skor AI (semantik) + skor heuristik gamer (bukti fisik)
-                skor_heuristik = {}
-                for k in kandidat:
-                    isi = [x for x in kal if x.selesai > k["mulai"] and x.mulai < k["selesai"]]
-                    kata = [w for s in isi for w in s.kata]
-                    hooks = [bersih_kata(w.teks) for w in kata if HOOK_GAME.match(bersih_kata(w.teks))]
-                    skor_heuristik[k["id"]] = (len(set(hooks)) * 9
-                                               + k["sinyal"]["lonjak"] * 20
-                                               + k["sinyal"]["reaksi"] * 22
-                                               + k["sinyal"]["energi"] * 16)
-                gabungan = {}
-                for kid, s in skor_ai.items():
-                    gabungan[kid] = {"score": s["score"] * 0.7 + skor_heuristik.get(kid, 0) * 0.3,
-                                     "reason": s["reason"]}
-                klips = ai_pilih_klip(kandidat, gabungan, kal, a.jumlah)
-                sumber_ai = f"{penyedia}+lokal"
-                log(f"   AI memilih {len(klips)} momen (skor gabungan AI 70% + sinyal gaming 30%).")
+            log(f"Mode momen AI utama: AI '{penyedia}' pilih momen dari teks Whisper.")
+            klips = ai_pilih_momen_utama(
+                kal, a.durasi, a.jumlah, a.arahan,
+                penyedia=penyedia,
+                cache=kerja / "ai-momen.json",
+            )
+            if klips:
+                sumber_ai = f"{penyedia}"
+                log(f"   AI utama memilih {len(klips)} momen dari teks Whisper.")
             else:
-                log("   AI tidak memberi skor → pakai heuristik lokal.")
+                log("   AI utama gagal → pakai heuristik lokal.")
                 klips = (pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
                                      mode="gamer", sinyal=sinyal) if mode_momen == "gamer"
                          else pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan))
