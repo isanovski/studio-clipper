@@ -90,7 +90,7 @@ def simpan_pengaturan(baru: dict) -> None:
 def samarkan(p: dict) -> dict:
     """Kunci tidak pernah dikirim balik utuh ke halaman."""
     out = dict(p)
-    for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "PIXABAY_API_KEY"):
+    for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "PIXABAY_API_KEY"):
         v = out.get(k, "")
         out[k] = ("••••" + v[-4:]) if v else ""
     return out
@@ -241,7 +241,7 @@ def pasang_suara() -> dict:
 def status_ai() -> dict:
     """Status nyata tiap jalur AI, untuk panduan bertahap di Pengaturan AI."""
     p = baca_pengaturan()
-    out = {"gemini": {"kunci": bool(p.get("GEMINI_API_KEY"))}}
+    out = {"gemini": {"kunci": bool(p.get("GEMINI_API_KEY"))}, "openrouter": {"kunci": bool(p.get("OPENROUTER_API_KEY"))}}
     # Ollama: terpasang? server menyala? model apa saja?
     import urllib.request
     ollama = shutil.which("ollama") or ("/Applications/Ollama.app" if Path("/Applications/Ollama.app").exists() else None)

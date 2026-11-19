@@ -294,8 +294,23 @@ def baca_kunci() -> str:
 
 
 def kunci_valid(kunci: str) -> bool:
-    """Kunci Gemini baru berformat `AQ.…`; jangan menolak titik/garis."""
+    """Kunci baru berformat `AQ.…` atau `sk-or-v1…`; jangan menolak titik/garis."""
     return len(kunci) >= 20 and not re.search(r"\s", kunci) and all(33 <= ord(c) < 127 for c in kunci)
+
+
+def simpan_kunci(nama: str, kunci: str) -> None:
+    """Simpan kunci ke klip/.env (chmod 600)."""
+    isi = KUNCI_ENV.read_text(encoding="utf-8") if KUNCI_ENV.exists() else ""
+    if re.search(rf"^{nama}=.*$", isi, re.M):
+        isi = re.sub(rf"^{nama}=.*$", f"{nama}={kunci}", isi, count=1, flags=re.M)
+    else:
+        isi = (isi.rstrip() + f"\n{nama}={kunci}\n") if isi else f"{nama}={kunci}\n"
+    KUNCI_ENV.parent.mkdir(parents=True, exist_ok=True)
+    KUNCI_ENV.write_text(isi, encoding="utf-8")
+    try:
+        os.chmod(KUNCI_ENV, 0o600)
+    except OSError:
+        pass
 
 
 def simpan_kunci(kunci: str) -> None:
@@ -651,16 +666,23 @@ def alur_motion(kering: bool = False) -> None:
 
 # ── alur 3: kunci AI ────────────────────────────────────────────────────────
 def alur_kunci() -> None:
-    judul("Kunci AI (Gemini)")
+    judul("Kunci AI (Gemini / OpenRouter)")
     kunci, asal = sumber_kunci()
     if kunci:
-        ok("terbaca dari " + asal + " (" + kunci[:6] + "…" + kunci[-4:] + ")")
+        ok("terbaca dari " + asal + " (" + kunci[:6] + "... " + kunci[-4:] + ")")
         if asal != "klip/.env":
             info("sudah dipakai otomatis; menempel di sini akan menyalinnya ke klip/.env")
     else:
         info("belum ada — tanpa kunci, pemilih momen memakai heuristik lokal.")
     print()
-    info("Ambil kunci gratis di https://aistudio.google.com/apikey")
+    print("  1. Gemini (Google AI Studio)")
+    print("  2. OpenRouter (model gratis)")
+    pil = tanya("Pilih [1]:", "1").strip()
+    nama_env = "GEMINI_API_KEY" if pil != "2" else "OPENROUTER_API_KEY"
+    link = "https://aistudio.google.com/apikey" if pil != "2" else "https://openrouter.ai/keys"
+    contoh = "AIza…" if pil != "2" else "sk-or-v1…"
+    print()
+    info(f"Ambil kunci gratis di {link}")
     info("Tempel di sini (tidak akan terlihat di layar). Enter = batal.")
     print()
     try:
@@ -671,21 +693,20 @@ def alur_kunci() -> None:
         return
     if bukan := baru.strip().strip('"').strip("'"):
         baru = bukan
-    if baru.startswith("GEMINI_API_KEY="):
+    if baru.startswith(nama_env + "="):
         baru = baru.split("=", 1)[1].strip().strip('"').strip("'")
     if not baru:
         return
     if not kunci_valid(baru):
         gagal(f"Kunci tidak valid ({len(baru)} karakter, {len(baru.split())} kata).")
-        info("Tempel hanya nilainya, mis. AQ.Ab8… atau AIza… — tanpa spasi dan tanpa 'GEMINI_API_KEY='.")
+        info(f"Tempel hanya nilainya, mis. {contoh} — tanpa spasi dan tanpa '{nama_env}= '.")
         return
-    simpan_kunci(baru)
+    simpan_kunci(nama_env, baru)
     ok(f"disimpan di {KUNCI_ENV.relative_to(AKAR)} (hanya bisa dibaca kamu)")
     print()
-    kode = jalan([uv_cmd(), "run", "klip/klip.py", "--uji-ai", "gemini"], label="menguji kunci")
+    kode = jalan([uv_cmd(), "run", "klip/klip.py", "--uji-ai", "openrouter" if pil == "2" else "gemini"], label="menguji kunci")
     if kode != 0:
         info("Kunci tersimpan tapi uji gagal — cek kuota/jaringan, atau ganti kuncinya.")
-
 
 # ── alur 4: bantuan ─────────────────────────────────────────────────────────
 def bantuan() -> None:
@@ -745,7 +766,7 @@ def menu() -> None:
         pilihan = pilih("Mau bikin apa?", [
             "Potong video jadi klip 9:16",
             "Topik jadi video animasi",
-            "Kunci AI (Gemini)",
+            "Kunci AI (Gemini / OpenRouter)",
             "Bantuan & perintah manual",
             "Keluar",
         ], 0)
