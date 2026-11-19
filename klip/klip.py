@@ -35,6 +35,12 @@ from pathlib import Path
 
 import numpy as np
 
+try:
+    from pytrends.request import TrendReq
+    _HAS_PYTRENDS = True
+except Exception:
+    _HAS_PYTRENDS = False
+
 from framing import frame_shot, layout_filter, load_model, is_installed  # type: ignore
 
 KATA_HOOK = {
@@ -436,6 +442,55 @@ def kalimat_utuh(kal: list[Kalimat]) -> list[Kalimat]:
     return hasil
 
 
+def skor_google_trends(topik_list: list[str]) -> dict[str, float]:
+    """Cek topik di Google Trends (Indonesia, 7 hari terakhir).
+
+    Return dict {topik: skor 0-100}. Jika pytrends tidak ada atau gagal,
+    return {} (caller tetap pakai skor lokal).
+    """
+    if not _HAS_PYTRENDS or not topik_list:
+        return {}
+    try:
+        pytrends = TrendReq(hl='id-ID', tz=420, timeout=20)
+        hasil: dict[str, float] = {}
+        for topik in topik_list[:5]:  # batasi 5 topik biar cepat
+            try:
+                pytrends.build_payload([topik], cat=0, timeframe='now 7-d', geo='ID')
+                data = pytrends.interest_over_time()
+                if not data.empty and topik in data.columns:
+                    nilai = data[topik].mean()
+                    hasil[topik] = float(nilai)  # 0-100
+            except Exception:
+                continue
+        return hasil
+    except Exception:
+        return {}
+
+
+def ekstrak_topik(kal: list[Kalimat], arahan: str = "") -> list[str]:
+    """Ambil kata kunci potensial dari kalimat untuk dicek ke Google Trends."""
+    from collections import Counter
+    kata_counter: Counter[str] = Counter()
+    for k in kal:
+        for w in re.findall(r"\w+", k.teks.lower()):
+            if len(w) > 4 and w not in KATA_STOP:
+                kata_counter[w] += 1
+    topik = [w for w, _ in kata_counter.most_common(8)]
+    if arahan:
+        topik.extend(w for w in re.findall(r"\w+", arahan.lower()) if len(w) > 3)
+    return topik[:10]
+
+
+KATA_STOP = {
+    "yang", "dan", "atau", "dari", "dengan", "untuk", "pada", "di", "ke", "di",
+    "ini", "itu", "saya", "kamu", "dia", "mereka", "ada", "tidak", "bisa",
+    "sudah", "belum", "masih", "juga", "lah", "kah", "tah", "nah", "yaitu",
+    "seperti", "pada", "oleh", "jika", "maka", "karena", "supaya", "agar",
+    "namun", "tetapi", "tapi", "jadi", "kalau", "kalo", "saat", "waktu",
+    "waktu", "hari", "bulan", "tahun", "jam", "detik", "menit",
+}
+
+
 def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
                 durasi: float, jumlah: int, panjang_video: float, arahan: str = "",
                 mode: str = "umum", sinyal: dict | None = None) -> list[Klip]:
@@ -470,6 +525,9 @@ def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
         # tanpa ucapan: pakai energi audio saja
         kal = [Kalimat(float(t), float(t + 1), "", []) for t in range(int(panjang_video))]
     kal = kalimat_utuh(kal)
+    # Google Trends: cek topik yang lagi viral di Indonesia (fallback ke {} jika gagal)
+    topik_google = ekstrak_topik(kal, arahan)
+    trends = skor_google_trends(topik_google)
     kandidat: list[Klip] = []
     for i, k in enumerate(kal):
         for j in range(i, len(kal)):
@@ -493,6 +551,10 @@ def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
                     - abs(pj - durasi) / durasi * 10 + e * 10 + hm * 30)
             if kata_arahan and kata_arahan & set(semua_kata):
                 skor += 20
+            # Bonus Google Trends: kalau klip mengandung topik yang lagi viral
+            bonus_trends = max((trends.get(w, 0) for w in semua_kata if w in trends), default=0)
+            if bonus_trends > 40:
+                skor += int(bonus_trends / 10)  # max +10 skor
             alasan = [x for x in ("pembuka kuat" if pembuka else "", "ada pertanyaan" if tanya else "",
                                   f"{len(hooks)} kata pemikat" if hooks else "", "bicara padat" if padat >= 2.6 else "",
                                   "sering diputar ulang" if hm > 0.5 else "", "sesuai arahan" if kata_arahan & set(semua_kata) else "") if x]
