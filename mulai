@@ -134,6 +134,22 @@ def bersihkan_jalur(teks: str) -> str:
     return os.path.expanduser(t)
 
 
+def durasi_video(path: str | Path) -> float | None:
+    """Durasi video dalam detik via ffprobe. None jika gagal."""
+    try:
+        import subprocess as sp
+        r = sp.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode != 0 or not r.stdout.strip():
+            return None
+        return float(r.stdout.strip())
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+
+
 # ── menjalankan proses dengan status hidup ───────────────────────────────────
 class Status:
     """Status satu baris, TANPA spinner/background.
@@ -312,6 +328,62 @@ def simpan_kunci(nama: str, kunci: str) -> None:
     except OSError:
         pass
 
+def alur_motion(kering: bool = False) -> None:
+    judul("Topik jadi video animasi")
+
+    topik = tanya("Topik video", "")
+    if not topik:
+        return
+
+    naskah = tanya("Naskah (opsional, kosongkan untuk otomatis)", "")
+    print()
+
+    gaya = "terbaca"
+    nama = tanya("Nama output (opsional)", topik[:30].replace(" ", "_"))
+    if not nama:
+        nama = topik[:30].replace(" ", "_")
+
+    tujuan = HASIL / f"{nama}-{datetime.now():%Y%m%d-%H%M}"
+    n = 2
+    while tujuan.exists():
+        tujuan = HASIL / f"{nama}-{datetime.now():%Y%m%d-%H%M}-{n}"
+        n += 1
+
+    print()
+    info(f"hasil akan disimpan di {tujuan.relative_to(AKAR)}")
+    if not ya("Mulai sekarang?", True):
+        return
+
+    cmd = ["node", "motion/naskah.mjs", topik, "--ai=" + ("gemini" if baca_kunci() else "lokal"),
+           "--gaya=" + gaya, "--nama=" + nama]
+    if naskah:
+        cmd += ["--naskah", naskah]
+    kode = jalan(cmd, label="membuat naskah motion", kering=kering)
+    if kode != 0:
+        print()
+        info("Gagal membuat naskah motion.")
+        return
+
+    naskah_file = Path("motion") / "naskah" / f"{nama}.json"
+    if not naskah_file.exists():
+        naskah_dir = Path("motion") / "naskah"
+        files = sorted(naskah_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True) if naskah_dir.exists() else []
+        if files:
+            naskah_file = files[0]
+        else:
+            gagal("File naskah tidak ditemukan.")
+            return
+
+    cmd2 = ["node", "motion/buat.mjs", str(naskah_file), "--gaya=" + gaya]
+    kode = jalan(cmd2, label="merender video motion", kering=kering)
+    if kode != 0:
+        print()
+        info("Gagal merender video motion.")
+        return
+
+    ok("Video motion selesai.")
+
+
 def alur_kunci() -> None:
     judul("Kunci AI (Gemini / OpenRouter)")
     kunci, asal = sumber_kunci()
@@ -356,7 +428,169 @@ def alur_kunci() -> None:
         info("Kunci tersimpan tapi uji gagal — cek kuota/jaringan, atau ganti kuncinya.")
 
 
+# ── alur 3: potong video jadi klip ─────────────────────────────────────────────
 def alur_klip(kering: bool = False) -> None:
+    judul("Potong video jadi klip 9:16")
+
+    video_ditemukan = []
+    for folder in [AKAR, AKAR / "contoh", Path.cwd()]:
+        if not folder.exists():
+            continue
+        for f in folder.iterdir():
+            if f.is_file() and f.suffix.lower() in {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}:
+                video_ditemukan.append(f)
+
+    if not video_ditemukan:
+        info("Tidak ada file video di sekitar repo.")
+        info("Seret file ke terminal, atau tempel jalur / link YouTube.")
+        return
+
+    print()
+    print("  Video yang ketemu:")
+    for i, f in enumerate(video_ditemukan[:10], 1):
+        print(f"    {i}. {f.name}")
+    print("    0. Tempel jalur / link YouTube")
+    print()
+
+    try:
+        pil = int(tanya("Pilih video [1]:", "1").strip())
+    except ValueError:
+        gagal("Pilih angka.")
+        return
+
+    if pil == 0:
+        sumber = bersihkan_jalur(tanya("Jalur / link:").strip())
+    elif 1 <= pil <= len(video_ditemukan):
+        sumber = str(video_ditemukan[pil - 1])
+    else:
+        gagal("Pilihan tidak valid.")
+        return
+
+    if sumber.startswith("http"):
+        info("Link diterima — pengunduhan bisa gagal kalau IP diblokir YouTube.")
+    else:
+        pp = Path(sumber)
+        if not pp.exists() and not pp.is_absolute():
+            pp = (Path.cwd() / sumber)
+        if not pp.exists():
+            gagal(f"File tidak ditemukan: {sumber}")
+            return
+        sumber = str(pp.resolve())
+        d = durasi_video(sumber)
+        if d:
+            panjang = detik_ke_teks(d)
+            rendah, tinggi = d * 2.5 / 60, d * 5 / 60
+            if tinggi < 1:
+                kira = "kurang dari 1 menit"
+            else:
+                kira = f"{max(1, int(rendah))}–{max(2, int(tinggi))} menit"
+            ok(f"{pp.name} · {panjang} · perkiraan transkripsi {kira}")
+
+    print()
+    jumlah = tanya("Jumlah klip", "3")
+    durasi = tanya("Durasi tiap klip (detik)", "30")
+    print()
+    lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "gamer (wajah atas + gameplay bawah)"], 0)
+    layout = ["tunggal", "gamer"][lay_ke]
+    facecam = ""
+    momen = ""
+    face_mode = "auto"
+    face_x = 0.5
+    if layout == "gamer":
+        print()
+        info("File facecam = video kamera orang (pisah dari game).")
+        facecam = bersihkan_jalur(tanya("File facecam", ""))
+        if facecam and not Path(facecam).exists() and not Path((Path.cwd() / facecam)).exists():
+            gagal(f"File facecam tidak ditemukan: {facecam}")
+            facecam = ""
+        print()
+        mom_ke = pilih("Preset cari momen", ["gamer (teriakan + reaksi wajah + aksi game)", "umum (hook + bicara padat)"], 0)
+        momen = ["gamer", "umum"][mom_ke]
+    else:
+        fm_ke = pilih("Mode bingkai wajah", ["auto (ikuti wajah bicara)", "manual (tentukan posisi)", "fit (layar penuh, jangan potong)"], 0)
+        face_mode = ["auto", "manual", "fit"][fm_ke]
+        if face_mode == "manual":
+            fx = tanya("Posisi wajah 0.0 (kiri) … 1.0 (kanan)", "0.5")
+            try:
+                face_x = float(fx)
+                if not 0 <= face_x <= 1:
+                    raise ValueError
+            except ValueError:
+                gagal("Posisi wajah harus 0.0–1.0, pakai 0.5")
+                face_x = 0.5
+    print()
+    ai_ke = pilih("AI produksi", ["lokal (gratis, tanpa AI)", "openrouter (model FREE)", "gemini (butuh kunci)"], 0)
+    ai = ["lokal", "openrouter", "gemini"][ai_ke]
+    ai_tahap = ""
+    if ai != "lokal":
+        tap_ke = pilih("Tahap AI", ["pilih momen + metadata", "+ koreksi transkrip", "semua tahap (tambah QC)"], 0)
+        ai_tahap = ["skor,hook", "skor,hook,transkrip", "skor,hook,transkrip,qc"][tap_ke]
+    if ai == "gemini" and not baca_kunci():
+        gagal("Kunci Gemini belum ada. Pilih menu 3 dulu, atau lanjut dengan lokal.")
+        if not ya("Lanjut pakai lokal?", True):
+            return
+        ai = "lokal"
+        ai_tahap = ""
+    print()
+    arahan = tanya("Cari momen tertentu? (kosong = bebas)", "")
+    print()
+    wm = tanya("Watermark tengah ('-' = tanpa)", "isanovski Studio")
+    print()
+    info(f"hasil akan disimpan di hasil/{Path(sumber).stem}-<tanggal>")
+    ringkas = [f"{jumlah} klip × {durasi} dtk", layout]
+    if momen:
+        ringkas.append(f"momen {momen}")
+    if ai != "lokal":
+        ringkas.append(f"AI {ai}")
+    if facecam:
+        ringkas.append(f"facecam {Path(facecam).name}")
+    print("  " + DIM(" · ".join(ringkas)))
+    if not ya("Mulai sekarang?", True):
+        return
+
+    cmd = [uv_cmd(), "run", "klip/klip.py", sumber,
+           "--jumlah", str(jumlah), "--durasi", str(durasi),
+           "--keluar", "hasil", "--ai", ai,
+           "--layout", layout,
+           "--face-mode", face_mode,
+           "--face-x", str(face_x),
+           "--potong", "120"]
+    if arahan:
+        cmd += ["--arahan", arahan]
+    if wm and wm != "-":
+        cmd += ["--watermark", wm]
+    if facecam:
+        cmd += ["--facecam", facecam]
+    if momen:
+        cmd += ["--momen", momen]
+    if ai_tahap:
+        cmd += ["--ai-tahap", ai_tahap]
+    kode = jalan(cmd, label="menganalisis & merender", kering=kering)
+    if kode != 0:
+        print()
+        if sumber.startswith("http"):
+            info("Kalau link YouTube-nya bermasalah, unduh dulu di laptop lalu seret filenya.")
+        else:
+            info("Cek pesan di atas: biasanya video gagal dibaca, model Whisper belum terunduh, atau proses dihentikan.")
+
+
+
+    """Tampilkan daftar klip di folder hasil."""
+    if not folder.exists():
+        gagal(f"Folder tidak ditemukan: {folder}")
+        return
+
+    klip_files = sorted(folder.glob("klip-*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not klip_files:
+        info(f"Tidak ada klip di {folder}")
+        return
+
+    judul(f"Klip di {folder}")
+    for f in klip_files:
+        info(f"  {f.name} ({manusia(f.stat().st_size)})")
+
+
+
     judul("Potong video jadi klip 9:16")
 
     video_ditemukan = []
