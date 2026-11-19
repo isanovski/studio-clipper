@@ -275,13 +275,35 @@ def motion_per_detik(path: Path, fps: float = 1.0, sisi: int = 32) -> np.ndarray
     Frame di-downscale ke sisi x sisi abu-abu supaya murah.
     fps rendah (1) biar cepat di VPS 2-core; deteksi gerakan besar tetap tercapai.
     """
+    import time as _time
+
     cmd = [ffmpeg(), "-v", "error", "-i", str(path),
            "-vf", f"fps={fps},scale={sisi}:{sisi}:flags=fast_bilinear,format=gray",
            "-f", "rawvideo", "-pix_fmt", "gray", "-"]
+
+    log("   Memulai deteksi gerakan video (bisa lama pada video panjang)…")
+    t0 = _time.time()
+
     try:
-        raw = subprocess.run(cmd, capture_output=True, timeout=1800).stdout
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        chunks = []
+        while True:
+            chunk = proc.stdout.read(sisi * sisi)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            now = _time.time()
+            if now - t0 > 10:
+                log(f"   …masih proses video ({int(now - t0)} detik)")
+                t0 = now
     except subprocess.TimeoutExpired:
-        return np.zeros(1)
+        proc.kill()
+        proc.wait()
+        log("   Deteksi gerakan melebihi batas waktu, menggunakan data yang sudah terkumpul.")
+        raw = b"".join(chunks)
+    else:
+        raw = b"".join(chunks)
+
     n = len(raw) // (sisi * sisi)
     if n < 2:
         return np.zeros(1)
