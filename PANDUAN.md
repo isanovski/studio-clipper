@@ -72,7 +72,7 @@ Ketik `./mulai` (atau `python3 mulai` kalau permission error). Muncul menu:
 
 Pilih **1**. Sistem akan:
 
-1. **Daftar video otomatis** — file `.mp4 .mov .mkv .webm .m4v .avi .ts .flv` di folder repo, `unggahan/`, dan `~/Studio Maliki/unggahan`, urut dari yang terbaru.
+1. **Daftar video otomatis** — file `.mp4 .mov .mkv .webm .m4v .avi .ts .flv` di folder repo, `unggahan/`, dan `~/Isanovski Studio/unggahan`, urut dari yang terbaru.
 2. Pilih nomor video, atau pilih **"tempel jalur lain / link YouTube"** kalau videonya belum muncul.
 3. Ditanya **jumlah klip** (default 3) dan **durasi tiap klip** (default 30 detik). Enter saja kalau mau bawaan.
 4. Pilih **pemilih momen**: lokal (gratis, tanpa kunci) atau Gemini (butuh kunci API).
@@ -431,7 +431,7 @@ export GEMINI_API_KEY="AIzaSy..."
 ```
 
 **D. Lewat web UI** (kalau pernah nyalakan `studio.py`):
-Kunci disimpan di `~/Studio Maliki/pengaturan.env`, dan `./mulai` otomatis bisa baca dari sana.
+Kunci disimpan di `~/Isanovski Studio/pengaturan.env`, dan `./mulai` otomatis bisa baca dari sana.
 
 ### Lokasi kunci yang dibaca (urutan prioritas):
 
@@ -439,7 +439,7 @@ Kunci disimpan di `~/Studio Maliki/pengaturan.env`, dan `./mulai` otomatis bisa 
 |--------|-----------|
 | `GEMINI_API_KEY` (environment) | 1 (tertinggi) |
 | `klip/.env` | 2 |
-| `~/Studio Maliki/pengaturan.env` | 3 |
+| `~/Isanovski Studio/pengaturan.env` | 3 |
 
 ### Cek kunci:
 
@@ -563,12 +563,12 @@ gh codespace cp remote:/workspaces/studio-clipper/hasil/klip-01.mp4 .
 
 ## 13. Lisensi
 
-Template oleh **Maliki Saputra** ([@malikisaputra](https://github.com/malikisaputra)) — https://malikisaputra.biz.id.
+Template oleh **Isanovski Saputra** ([@isanovskisaputra](https://github.com/isanovskisaputra)) — https://isanovskisaputra.biz.id.
 
-**Lisensi Nonkomersial Maliki Studio 1.0**: boleh dipakai untuk belajar, pribadi, atau usaha sendiri; boleh diubah dan dibagikan gratis **dengan kredit utuh**; **dilarang dijual, dijual ulang, disewakan, atau dipakai untuk jasa berbayar ke pihak lain**. Teks lengkap: [`LISENSI.md`](LISENSI.md).
+**Lisensi Nonkomersial Isanovski Studio 1.0**: boleh dipakai untuk belajar, pribadi, atau usaha sendiri; boleh diubah dan dibagikan gratis **dengan kredit utuh**; **dilarang dijual, dijual ulang, disewakan, atau dipakai untuk jasa berbayar ke pihak lain**. Teks lengkap: [`LISENSI.md`](LISENSI.md).
 
 Pustaka pihak ketiga (Remotion, faster-whisper, yt-dlp, font OFL, dll.) tetap mengikuti lisensinya masing-masing.
 
 ---
 
-> Rebrand sebagai turunan dari studio-maliki. Kredit Maliki Saputra tetap di sidebar footer, mobile footer, dan header HTML/commen — sesuai lisensi §2d / §3.
+> Rebrand sebagai turunan dari studio-isanovski. Kredit Isanovski Saputra tetap di sidebar footer, mobile footer, dan header HTML/commen — sesuai lisensi §2d / §3.

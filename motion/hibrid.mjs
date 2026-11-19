@@ -1,4 +1,4 @@
-// kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
+// kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
 // Hibrid: ubah hasil alat/klip (klip.json) jadi naskah motion yang menyelipkan kartu animasi.
 // Pakai: node hibrid.mjs ../klip/hasil-klip [--gaya=neon] [--handle=@akun] [--judul="Judul video"]
 // Hasil: naskah/hibrid.json  →  node buat.mjs naskah/hibrid.json

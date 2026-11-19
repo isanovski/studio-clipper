@@ -1,10 +1,10 @@
-# kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md)
-# Membuat "Pasang-Studio-Maliki-<versi>-windows.exe" (Inno Setup) yang membawa Python, ffmpeg, dan semua paket.
+# kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md)
+# Membuat "Pasang-Studio-Isanovski-<versi>-windows.exe" (Inno Setup) yang membawa Python, ffmpeg, dan semua paket.
 # HARUS dijalankan di Windows 10/11 64-bit:
 #   1) pasang uv:          powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 #   2) pasang Inno Setup 6: https://jrsoftware.org/isdl.php  (atau: winget install JRSoftware.InnoSetup)
 #   3) di folder repo:     powershell -ExecutionPolicy Bypass -File alat\pemasang\bangun-windows.ps1
-# Hasil: alat\pemasang\hasil\Pasang-Studio-Maliki-<versi>-windows.exe
+# Hasil: alat\pemasang\hasil\Pasang-Studio-Isanovski-<versi>-windows.exe
 $ErrorActionPreference = "Stop"
 $Pemasang = $PSScriptRoot
 $Alat = Split-Path -Parent $Pemasang
@@ -12,7 +12,7 @@ $Versi = (Get-Content "$Alat\VERSI" -Raw).Trim()
 $Stage = Join-Path $Pemasang "hasil\windows"
 $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
 
-Write-Host "- Studio Maliki $Versi untuk Windows x64"
+Write-Host "- Isanovski Studio $Versi untuk Windows x64"
 if (Test-Path $Stage) { Remove-Item -Recurse -Force $Stage }
 New-Item -ItemType Directory -Force "$Stage\bin", "$Stage\alat" | Out-Null
 
@@ -55,6 +55,6 @@ if (-not (Test-Path $Isl)) {
   try { Invoke-WebRequest "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/Indonesian.isl" -OutFile $Isl }
   catch { $Isl = Join-Path (Split-Path $Iscc) "Default.isl" }
 }
-& $Iscc "/DBahasaIsl=$Isl" "/DVersi=$Versi" "/DStage=$Stage" "/DAlat=$Alat" "/O$Pemasang\hasil" "$Pemasang\studio-maliki.iss"
+& $Iscc "/DBahasaIsl=$Isl" "/DVersi=$Versi" "/DStage=$Stage" "/DAlat=$Alat" "/O$Pemasang\hasil" "$Pemasang\studio-isanovski.iss"
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup gagal (kode $LASTEXITCODE)" }
-Write-Host "Selesai: $Pemasang\hasil\Pasang-Studio-Maliki-$Versi-windows.exe" -ForegroundColor Green
+Write-Host "Selesai: $Pemasang\hasil\Pasang-Studio-Isanovski-$Versi-windows.exe" -ForegroundColor Green

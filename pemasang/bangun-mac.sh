@@ -1,6 +1,6 @@
 #!/bin/bash
-# kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md)
-# Membuat "Studio Maliki.app" + "Studio-Maliki-<versi>-mac-<arsitektur>.dmg" yang sudah membawa Python, ffmpeg, dan
+# kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md)
+# Membuat "Isanovski Studio.app" + "Studio-Isanovski-<versi>-mac-<arsitektur>.dmg" yang sudah membawa Python, ffmpeg, dan
 # semua paket. Pengguna tidak perlu membuka Terminal: buka .dmg → seret ke Applications.
 #
 # Jalankan di Mac (sekali per arsitektur):
@@ -14,11 +14,11 @@ VERSI="$(tr -d '[:space:]' < "$ALAT/VERSI")"
 ARS="${ARSITEKTUR:-$(uname -m)}"
 case "$ARS" in arm64|aarch64) ARS=arm64; PYARS=aarch64 ;; x86_64) PYARS=x86_64 ;; *) echo "Arsitektur tidak dikenal: $ARS"; exit 1 ;; esac
 HASIL="$PEMASANG/hasil"
-APP="$HASIL/Studio Maliki.app"
+APP="$HASIL/Isanovski Studio.app"
 RES="$APP/Contents/Resources"
 export PATH="$HOME/.local/bin:$PATH"
 
-echo "• Studio Maliki $VERSI untuk macOS $ARS"
+echo "• Isanovski Studio $VERSI untuk macOS $ARS"
 mkdir -p "$HASIL"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$RES/bin"
@@ -65,9 +65,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleName</key><string>Studio Maliki</string>
-  <key>CFBundleDisplayName</key><string>Studio Maliki</string>
-  <key>CFBundleIdentifier</key><string>id.biz.malikisaputra.studio</string>
+  <key>CFBundleName</key><string>Isanovski Studio</string>
+  <key>CFBundleDisplayName</key><string>Isanovski Studio</string>
+  <key>CFBundleIdentifier</key><string>id.biz.isanovskisaputra.studio</string>
   <key>CFBundleVersion</key><string>$VERSI</string>
   <key>CFBundleShortVersionString</key><string>$VERSI</string>
   <key>CFBundleExecutable</key><string>studio</string>
@@ -75,17 +75,17 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSHumanReadableCopyright</key><string>Template oleh Maliki Saputra (@malikisaputra) — malikisaputra.biz.id</string>
+  <key>NSHumanReadableCopyright</key><string>Template oleh Isanovski Saputra (@isanovskisaputra) — isanovskisaputra.biz.id</string>
 </dict></plist>
 PLIST
 
 cat > "$APP/Contents/MacOS/studio" <<'LAUNCH'
 #!/bin/bash
-# Peluncur Studio Maliki (versi installer): Python & paket ada di dalam aplikasi.
+# Peluncur Isanovski Studio (versi installer): Python & paket ada di dalam aplikasi.
 RES="$(cd "$(dirname "$0")/../Resources" && pwd)"
 export STUDIO_PY="$RES/python/bin/python3.12" STUDIO_UV="$RES/bin/uv" PYTHONDONTWRITEBYTECODE=1 PYTHONNOUSERSITE=1
 export PATH="$RES/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-DATA="$HOME/Studio Maliki"; mkdir -p "$DATA"
+DATA="$HOME/Isanovski Studio"; mkdir -p "$DATA"
 exec "$STUDIO_PY" "$RES/alat/studio/studio.py" > "$DATA/studio.log" 2>&1
 LAUNCH
 chmod +x "$APP/Contents/MacOS/studio"
@@ -96,13 +96,13 @@ codesign --force --deep --sign - "$APP" 2>/dev/null
 codesign --verify --deep "$APP" && echo "• Tanda tangan ad-hoc OK"
 
 # 7) DMG: aplikasi + pintasan Applications (seret untuk memasang / memperbarui)
-DMG="$HASIL/Studio-Maliki-$VERSI-mac-$ARS.dmg"
+DMG="$HASIL/Studio-Isanovski-$VERSI-mac-$ARS.dmg"
 STAGE="$(mktemp -d)"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 cp "$PEMASANG/BACA-DULU-mac.txt" "$STAGE/Baca dulu.txt"
 rm -f "$DMG"
-hdiutil create -quiet -volname "Studio Maliki $VERSI" -srcfolder "$STAGE" -fs HFS+ -format UDZO -imagekey zlib-level=9 "$DMG"
+hdiutil create -quiet -volname "Isanovski Studio $VERSI" -srcfolder "$STAGE" -fs HFS+ -format UDZO -imagekey zlib-level=9 "$DMG"
 rm -rf "$STAGE"
 echo "✅ $(du -sh "$APP" | cut -f1) aplikasi · $(du -h "$DMG" | cut -f1) DMG"
 echo "   $DMG"

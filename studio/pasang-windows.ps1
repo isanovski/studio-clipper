@@ -1,12 +1,12 @@
-# Installer Studio Maliki untuk Windows 10/11.
-# Dijalankan oleh "Pasang Studio Maliki (Windows).bat". Memasang uv (kalau belum ada), dependensi Klip,
-# Motion (kalau Node.js ada), lalu membuat pintasan "Studio Maliki" di Desktop dan Start Menu.
+# Installer Isanovski Studio untuk Windows 10/11.
+# Dijalankan oleh "Pasang Isanovski Studio (Windows).bat". Memasang uv (kalau belum ada), dependensi Klip,
+# Motion (kalau Node.js ada), lalu membuat pintasan "Isanovski Studio" di Desktop dan Start Menu.
 $ErrorActionPreference = "Stop"
 $Alat = Split-Path -Parent $PSScriptRoot
 $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
 
 Write-Host ""
-Write-Host "  Memasang Studio Maliki (Klip + Motion)" -ForegroundColor Cyan
+Write-Host "  Memasang Isanovski Studio (Klip + Motion)" -ForegroundColor Cyan
 Write-Host ""
 
 # 1) uv — pengelola Python resmi dari Astral (astral.sh/uv)
@@ -30,17 +30,17 @@ $Tujuan = @(
   (Join-Path ([Environment]::GetFolderPath("Programs")) "")
 )
 foreach ($Folder in $Tujuan) {
-  $Lnk = $Wsh.CreateShortcut((Join-Path $Folder "Studio Maliki.lnk"))
+  $Lnk = $Wsh.CreateShortcut((Join-Path $Folder "Isanovski Studio.lnk"))
   $Lnk.TargetPath = $Uvw
   $Lnk.Arguments = "run -q --gui-script `"$Alat\studio\studio.py`""
   $Lnk.WorkingDirectory = "$Alat\studio"
   $Lnk.IconLocation = "$Alat\studio\aset\ikon.ico"
-  $Lnk.Description = "Studio Maliki - Klip & Motion"
+  $Lnk.Description = "Isanovski Studio - Klip & Motion"
   $Lnk.Save()
 }
 
 Write-Host ""
-Write-Host "Selesai! Buka 'Studio Maliki' dari Desktop atau Start Menu." -ForegroundColor Green
-Write-Host "Hasil kerja tersimpan di: $env:USERPROFILE\Studio Maliki"
+Write-Host "Selesai! Buka 'Isanovski Studio' dari Desktop atau Start Menu." -ForegroundColor Green
+Write-Host "Hasil kerja tersimpan di: $env:USERPROFILE\Isanovski Studio"
 Write-Host "Kalau folder alat ini dipindah, jalankan installer ini lagi."
 Start-Process $Uvw -ArgumentList "run -q --gui-script `"$Alat\studio\studio.py`"" -WorkingDirectory "$Alat\studio"

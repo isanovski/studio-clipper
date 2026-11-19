@@ -15,8 +15,8 @@ set -e
 AKAR="$(cd "$(dirname "$0")" && pwd)"
 export PATH="$HOME/.local/bin:$PATH"
 PORT_APP="${STUDIO_PORT:-8787}"
-# nama folder data sengaja "Studio Maliki" supaya sama dengan default studio.py
-DATA="${STUDIO_DATA:-$HOME/Studio Maliki}"
+# nama folder data sengaja "Isanovski Studio" supaya sama dengan default studio.py
+DATA="${STUDIO_DATA:-$HOME/Isanovski Studio}"
 
 echo ""
 echo "  ┌────────────────────────────────────────┐"

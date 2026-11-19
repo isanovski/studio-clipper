@@ -1,17 +1,17 @@
-STUDIO MALIKI — cara memasang di Mac
+ISANOVSKI STUDIO — cara memasang di Mac
 
-1. Seret "Studio Maliki" ke folder Applications.
-2. Buka Applications, klik kanan "Studio Maliki" → Buka → Buka.
+1. Seret "Isanovski Studio" ke folder Applications.
+2. Buka Applications, klik kanan "Isanovski Studio" → Buka → Buka.
    (Hanya pertama kali. Aplikasi ini belum ditandatangani Apple, jadi macOS bertanya dulu.
     Kalau tidak ada tombol Buka: Pengaturan Sistem → Privasi & Keamanan → "Tetap Buka".)
 
 MEMPERBARUI
 Buka .dmg versi baru, seret lagi ke Applications, pilih "Ganti".
-Hasil kerja di folder "Studio Maliki" (folder rumahmu) tidak terhapus.
+Hasil kerja di folder "Isanovski Studio" (folder rumahmu) tidak terhapus.
 
 Catatan
 - Saat pertama membuat klip, model Whisper (±500 MB) diunduh sekali.
 - Motion butuh Node.js (nodejs.org).
 
-Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id
-Lisensi Nonkomersial Maliki Studio 1.0: boleh dipakai, dilarang dijual ulang.
+Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id
+Lisensi Nonkomersial Isanovski Studio 1.0: boleh dipakai, dilarang dijual ulang.

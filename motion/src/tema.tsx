@@ -1,6 +1,6 @@
-// kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
-// Mesin tema Motion: 3 gaya awal + 11 gaya dari template video di malikisaputra.biz.id/kode
-// (T01–T11 & Kolase milik Maliki sendiri). Tiap tema = palet + font + latar + cara judul/ikon/subtitle muncul.
+// kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
+// Mesin tema Motion: 3 gaya awal + 11 gaya dari template video di isanovskisaputra.biz.id/kode
+// (T01–T11 & Kolase milik Isanovski sendiri). Tiap tema = palet + font + latar + cara judul/ikon/subtitle muncul.
 import React from 'react';
 import {AbsoluteFill, interpolate} from 'remotion';
 import {loadFont as fArchivo} from '@remotion/google-fonts/ArchivoBlack';

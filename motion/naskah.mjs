@@ -1,4 +1,4 @@
-// kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
+// kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
 // Topik → naskah JSON memakai AI milik pengguna (isi .env; lihat .env.contoh).
 // Pakai: node naskah.mjs "topik video" [--ai=gemini|openai|claude-code|codex|opencode] [--gaya=neon] [--nama=topikku]
 // Tanpa kunci API? Pakai PROMPT-NASKAH.md di Claude/Gemini/ChatGPT gratis lalu simpan JSON-nya sendiri.

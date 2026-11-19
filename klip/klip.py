@@ -9,10 +9,10 @@
 #   "google-genai>=1.0",
 # ]
 # ///
-# kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
+# kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
 """Klip — potong video panjang jadi klip pendek 9:16 (TikTok/Reels/Shorts).
 
-Ditulis dari nol oleh Maliki Motion. Jalan lokal di Mac, tanpa API berbayar.
+Ditulis dari nol oleh Isanovski Motion. Jalan lokal di Mac, tanpa API berbayar.
 
 Contoh:
   uv run klip.py video.mp4
@@ -691,13 +691,13 @@ TRANSKRIP:
 def baca_env() -> dict:
     """Baca pengaturan Studio lalu .env di folder skrip, timpa dengan variabel lingkungan.
 
-    Kunci yang diisi lewat web UI tersimpan di ~/Studio Maliki/pengaturan.env,
+    Kunci yang diisi lewat web UI tersimpan di ~/Isanovski Studio/pengaturan.env,
     sedangkan yang diisi lewat CLI tersimpan di klip/.env. Keduanya dibaca
     supaya tidak perlu mengisi dua kali.
     """
     import os
     env = {}
-    data = Path(os.environ.get("STUDIO_DATA") or (Path.home() / "Studio Maliki"))
+    data = Path(os.environ.get("STUDIO_DATA") or (Path.home() / "Isanovski Studio"))
     for f in (data / "pengaturan.env", Path(__file__).with_name(".env")):
         if not f.exists():
             continue
@@ -759,7 +759,7 @@ def tanya_ai(penyedia: str, prompt: str) -> str:
 def cari_cli(nama: str) -> str | None:
     import os
     import shutil
-    studio_cli = Path.home() / ".studio-maliki" / "cli"
+    studio_cli = Path.home() / ".studio-isanovski" / "cli"
     for c in (shutil.which(nama), str(studio_cli / "bin" / nama), str(studio_cli / f"{nama}.cmd"),
               str(Path.home() / ".local/bin" / nama), f"/opt/homebrew/bin/{nama}",
               f"/usr/local/bin/{nama}", str(Path.home() / ".npm-global/bin" / nama)):
@@ -1550,7 +1550,7 @@ PRESET = {
     "minimal": dict(font="Montserrat Medium", tebal=0, huruf="biasa", per=6, uk=60, warna="#FFFFFF", mode="polos", tepi=2, bayang=3),
     "podcast": dict(font="Montserrat ExtraBold", tebal=0, huruf="kapital", per=3, uk=74, warna="#FFD400", mode="warna", tepi=5,
                     bayang=0, latar="blur", banner_kotak="&H00000000", progres=True),
-    "maliki":  dict(font="Space Grotesk", tebal=1, huruf="biasa", per=3, uk=72, warna="#22D3EE", mode="warna",
+    "isanovski":  dict(font="Space Grotesk", tebal=1, huruf="biasa", per=3, uk=72, warna="#22D3EE", mode="warna",
                     kotak="&H38170F0B", tepi=16, bayang=0, banner_kotak="&H38170F0B", banner_warna="#22D3EE", progres=True),
     # 2.1 — kotak sorot mengikuti kata aktif, hook neon + coretan, judul serif elegan, judul kertas sobek
     "lime":    dict(font="Montserrat ExtraBold", tebal=0, huruf="kapital", per=3, uk=76, warna="#C6FF3D", mode="kotak", tepi=4, bayang=0),
@@ -1577,7 +1577,7 @@ def gaya_akhir(g: dict) -> dict:
                 c["tebal"] = 1 if g[k] not in ("Archivo Black", "Anton", "Bangers") and "Bold" not in g[k] else 0
             c[k] = g[k]
     c.setdefault("progres", True)
-    c.setdefault("zoom", True)
+    c.setdefault("zoom", False)
     for k in ("progres", "zoom", "akun", "emoji", "watermark"):
         if k in g:
             c[k] = g[k]
@@ -1858,7 +1858,7 @@ def rencana_broll(kata: list[Kata], mulai: float, durasi: float, lama: float = 2
 
 
 def cache_pixabay() -> Path:
-    d = Path.home() / ".studio-maliki" / "pixabay"
+    d = Path.home() / ".studio-isanovski" / "pixabay"
     d.mkdir(parents=True, exist_ok=True)
     batas = time.time() - 24 * 3600  # aturan Pixabay: cache maksimal 24 jam
     for f in d.iterdir():
@@ -1990,11 +1990,8 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         fc_size = int(g.get("fc_size", 600))     # sisi facecam (bujur)
         game_h = int(g.get("game_h", 1080))      # tinggi gameplay di canvas
         zoom = float(g.get("game_zoom", 1.0))    # >1 = perbesar gameplay (potong makin banyak kiri-kanan)
-        g["subtitle"] = False                    # layout gamer: tanpa subtitle
-        g["banner"] = False
-        g["judul_buka"] = False
-        g["akun"] = ""
-        g["watermark"] = ""
+        # Layout gamer: subtitle + banner diaktifkan (preset random di bawah)
+        # Tidak dipaksa mati lagi.
 
         if g.get("facecam"):
             # Dua file: facecam terpisah + gameplay
@@ -2148,10 +2145,18 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         graf.append(f"[{v}][pb]overlay=x='-W+W*t/{durasi:.2f}':y=H-10:eof_action=pass[vp]")
         v = "vp"
     if g.get("layout") == "gamer":
+        # Layout gamer: subtitle aktif di tengah frame, banner mati
+        # preset subtitle acak tiap render biar bervariasi
+        import random as _r
+        if not g.get("preset"):
+            g["preset"] = _r.choice(list(PRESET.keys()))
+        g["subtitle"] = True
         g["banner"] = False
         g["judul_buka"] = False
         g["akun"] = ""
         g["watermark"] = ""
+        if "posisi_y" not in g:
+            g["posisi_y"] = 50  # subtitle di tengah frame (50% dari atas)
     if g.get("subtitle", True) or g.get("banner", True) or c.get("akun") or (g.get("judul_buka", True) and klip.judul) \
             or c.get("watermark"):
         ass = kerja / f"{out.stem}.ass"

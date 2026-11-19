@@ -4,7 +4,7 @@ Potong video panjang jadi klip 9:16 (subtitle karaoke, bingkai ikut wajah), dan 
 dari satu topik. Semua diproses di mesin sendiri: tanpa kuota, tidak ada yang diunggah ke server orang
 lain, dan watermark-nya milikmu sendiri (bisa dihapus sekali isi).
 
-Fork pribadi dari [studio-maliki](https://github.com/malikisaputra-source/studio-maliki).
+Fork pribadi dari [studio-isanovski](https://github.com/isanovskisaputra-source/studio-isanovski).
 Kredit + lisensi di bagian paling bawah.
 
 ---
@@ -166,7 +166,7 @@ Kunci bisa berada di tiga tempat, dan `./mulai` membaca ketiganya:
 |---|---|
 | variabel lingkungan `GEMINI_API_KEY` | `export …` di terminal, atau Codespace secret |
 | `klip/.env` | lewat `./mulai` → **3 · Kunci AI** |
-| `~/Studio Maliki/pengaturan.env` | lewat **web UI** → Pengaturan AI (kunci yang sama, tidak perlu diisi ulang) |
+| `~/Isanovski Studio/pengaturan.env` | lewat **web UI** → Pengaturan AI (kunci yang sama, tidak perlu diisi ulang) |
 
 Cek cepat tanpa menu:
 
@@ -260,8 +260,8 @@ Kalau tidak mau pakai menu:
 
 ## Lisensi
 
-Template oleh **Maliki Saputra** ([@malikisaputra](https://github.com/malikisaputra)) — https://malikisaputra.biz.id.
+Template oleh **Isanovski Saputra** ([@isanovskisaputra](https://github.com/isanovskisaputra)) — https://isanovskisaputra.biz.id.
 
-**Lisensi Nonkomersial Maliki Studio 1.0**: boleh dipakai untuk belajar, pribadi, atau usaha sendiri; boleh
+**Lisensi Nonkomersial Isanovski Studio 1.0**: boleh dipakai untuk belajar, pribadi, atau usaha sendiri; boleh
 diubah dan dibagikan gratis **dengan kredit utuh**; **dilarang dijual, dijual ulang, disewakan, atau dipakai
 untuk jasa berbayar ke pihak lain**. Teks lengkap: [`LISENSI.md`](LISENSI.md).

@@ -5,7 +5,7 @@ import {Video, Props, totalFrame, FPS} from './Video';
 // dan render sungguhan selalu memakai --props dari buat.mjs.
 const contoh = {
   judul: 'Contoh', gaya: 'garis', handle: '',
-  adegan: [{judul: 'Contoh', teks: 'Tulis naskahmu di Studio Maliki.', kunci: ['naskahmu'], ikon: '🎬', durasi: 3}],
+  adegan: [{judul: 'Contoh', teks: 'Tulis naskahmu di Isanovski Studio.', kunci: ['naskahmu'], ikon: '🎬', durasi: 3}],
 };
 
 export const Akar: React.FC = () => (

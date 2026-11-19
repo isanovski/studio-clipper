@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (LISENSI.md): dilarang dijual ulang.
+# kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (LISENSI.md): dilarang dijual ulang.
 """isanovski Studio — pemandu CLI.
 
 Tampilan menu seperti web UI, tapi semuanya di terminal:
@@ -262,7 +262,7 @@ def uv_cmd() -> str:
     return "uv"
 
 
-PENGATURAN = Path(os.environ.get("STUDIO_DATA") or (Path.home() / "Studio Maliki")) / "pengaturan.env"
+PENGATURAN = Path(os.environ.get("STUDIO_DATA") or (Path.home() / "Isanovski Studio")) / "pengaturan.env"
 
 
 def _dari_berkas(f: Path, nama: str) -> str:
@@ -282,7 +282,7 @@ def _dari_berkas(f: Path, nama: str) -> str:
 def sumber_kunci() -> tuple[str, str]:
     """Cari GEMINI_API_KEY: environment → klip/.env → pengaturan web UI.
 
-    Kunci dari web UI (Pengaturan AI) tersimpan di ~/Studio Maliki/pengaturan.env,
+    Kunci dari web UI (Pengaturan AI) tersimpan di ~/Isanovski Studio/pengaturan.env,
     jadi tidak perlu mengisi ulang di terminal.
     """
     v = (os.environ.get("GEMINI_API_KEY") or "").strip()
@@ -297,7 +297,7 @@ def sumber_kunci() -> tuple[str, str]:
 
 def ada_openrouter() -> bool:
     """True kalau ada kunci OpenRouter (dipakai untuk AI produksi gratis)."""
-    for f in (KUNCI_ENV, Path.home() / "Studio Maliki" / "pengaturan.env"):
+    for f in (KUNCI_ENV, Path.home() / "Isanovski Studio" / "pengaturan.env"):
         if f.exists():
             for baris in f.read_text(encoding="utf-8", errors="replace").splitlines():
                 if baris.strip().startswith("OPENROUTER_API_KEY=") and baris.split("=", 1)[1].strip():

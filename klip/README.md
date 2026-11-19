@@ -2,7 +2,7 @@
 
 Alat ini mengambil video panjang (file atau link YouTube), mencari momen terbaik, lalu memotongnya jadi klip **1080×1920**.
 Setiap klip diberi subtitle karaoke dan bingkainya mengikuti wajah. Semua jalan di Mac sendiri, **tanpa watermark, tanpa kuota, dan tanpa API key**.
-Kode ditulis dari nol oleh Maliki Motion. Riset dan pembandingnya ada di `dokumentasi/21-riset-alat-clipper.md`.
+Kode ditulis dari nol oleh Isanovski Motion. Riset dan pembandingnya ada di `dokumentasi/21-riset-alat-clipper.md`.
 
 ## Langkah 1 — Pasang uv (sekali saja)
 Buka Terminal, lalu tempel:
@@ -111,8 +111,8 @@ Kanvas 1080×1920 hitam: **facecam kotak 600×600 di tengah atas** (di-crop, tid
 Naikkan `game_zoom` di `--gaya` kalau gameplay masih kurang besar.
 
 ## Lisensi
-Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id.
-Gratis dengan **Lisensi Nonkomersial Maliki Studio 1.0**: boleh dipakai untuk belajar, keperluan pribadi, atau usaha/organisasimu sendiri,
+Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id.
+Gratis dengan **Lisensi Nonkomersial Isanovski Studio 1.0**: boleh dipakai untuk belajar, keperluan pribadi, atau usaha/organisasimu sendiri,
 boleh diubah dan dibagikan gratis dengan kredit utuh; **dilarang dijual, dijual ulang, disewakan, diunggah ke marketplace, atau dipakai
 untuk jasa berbayar ke pihak lain**. Teks lengkap: [`LISENSI.md`](../LISENSI.md). Pustaka pihak ketiga (Remotion, faster-whisper, VoxCPM2,
 font OFL, dll.) tetap mengikuti lisensinya masing-masing.

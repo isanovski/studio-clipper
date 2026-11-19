@@ -1,4 +1,4 @@
-// kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
+// kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
 // 10 gaya ilustrasi (riset 14 Nov dari reel acuan "10 gaya animasi" — pola saja, bukan tiruan):
 // pixel art, papan kapur, sketsa emas bercahaya, low-poly PS2, komik, flat vector, stickman minimalis,
 // CGI mengilap, bata mainan, clay 3D. Ikon/emoji tiap adegan "digambar ulang" lewat filter SVG,

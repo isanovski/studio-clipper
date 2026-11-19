@@ -1,4 +1,4 @@
-// kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
+// kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
 // Panggil AI milik pengguna (BYOK): Gemini, OpenAI-compatible/Ollama, atau langganan lewat CLI resmi (Claude Code/Codex/OpenCode).
 // Dipakai bersama oleh naskah.mjs (naskah) dan gambar.mjs (SVG objek per adegan).
 import {readFileSync, existsSync, mkdtempSync, rmSync} from 'node:fs';
@@ -14,8 +14,8 @@ export const berhenti = (m) => {
 
 export function bacaEnv() {
   const env = {};
-  // kunci dari web UI ada di ~/Studio Maliki/pengaturan.env; .env di folder ini menimpanya
-  const data = process.env.STUDIO_DATA ?? join(homedir(), 'Studio Maliki');
+  // kunci dari web UI ada di ~/Isanovski Studio/pengaturan.env; .env di folder ini menimpanya
+  const data = process.env.STUDIO_DATA ?? join(homedir(), 'Isanovski Studio');
   for (const berkas of [join(data, 'pengaturan.env'), '.env']) {
     if (!existsSync(berkas)) continue;
     for (const baris of readFileSync(berkas, 'utf8').split('\n')) {
@@ -59,7 +59,7 @@ export async function tanyaAI(penyedia, prompt, env, tugas = 'menulis naskah') {
     const nama = {'claude-code': 'claude', codex: 'codex', opencode: 'opencode'}[penyedia];
     const label = {claude: 'Claude Code', codex: 'Codex', opencode: 'OpenCode'}[nama];
     const WIN = process.platform === 'win32';
-    const calon = [join(homedir(), '.studio-maliki', 'cli', 'bin', nama), join(homedir(), '.studio-maliki', 'cli', nama + '.cmd'),
+    const calon = [join(homedir(), '.studio-isanovski', 'cli', 'bin', nama), join(homedir(), '.studio-isanovski', 'cli', nama + '.cmd'),
       join(homedir(), '.local', 'bin', nama), `/opt/homebrew/bin/${nama}`, `/usr/local/bin/${nama}`,
       join(homedir(), '.npm-global', 'bin', nama)];
     const cari = spawnSync(WIN ? 'where' : 'which', [nama], {encoding: 'utf8'});

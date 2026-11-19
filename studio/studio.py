@@ -2,8 +2,8 @@
 # requires-python = ">=3.10,<3.13"
 # dependencies = ["pywebview>=5.0"]
 # ///
-# kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
-"""Studio Maliki — server lokal untuk tampilan Klip & Motion.
+# kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
+"""Isanovski Studio — server lokal untuk tampilan Klip & Motion.
 
 Hanya mendengar di 127.0.0.1 (tidak bisa dibuka dari perangkat lain).
 Jalankan: uv run studio.py            → jendela aplikasi (native)
@@ -23,7 +23,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlparse, parse_qs
 
 AKAR = Path(__file__).resolve().parent
 ALAT = AKAR.parent
@@ -41,7 +41,7 @@ MOTION = ALAT / "motion"
 SUARA = ALAT / "suara"
 if os.environ.get("STUDIO_PY"):
     # Versi installer: folder aplikasi hanya-baca → Motion (npm install, naskah, hasil) dijalankan dari salinan di folder data.
-    _m = Path(os.environ.get("STUDIO_DATA", Path.home() / "Studio Maliki")) / ".mesin" / "motion"
+    _m = Path(os.environ.get("STUDIO_DATA", Path.home() / "Isanovski Studio")) / ".mesin" / "motion"
     try:
         shutil.copytree(MOTION, _m, dirs_exist_ok=True, ignore=shutil.ignore_patterns("node_modules", "naskah", "hasil"))
         # src/Akar.tsx mengimpor naskah/contoh.json (props bawaan) → wajib ada, walau folder naskah lain tidak disalin
@@ -52,7 +52,7 @@ if os.environ.get("STUDIO_PY"):
         MOTION = _m
     except OSError:
         pass
-DATA = Path(os.environ.get("STUDIO_DATA", Path.home() / "Studio Maliki"))
+DATA = Path(os.environ.get("STUDIO_DATA", Path.home() / "Isanovski Studio"))
 ENV = DATA / "pengaturan.env"
 PORT = int(os.environ.get("STUDIO_PORT", "8787"))
 # HOST=0.0.0.0 → bisa dibuka dari HP di Wi-Fi yang sama (opt-in, bawaan tetap lokal saja)
@@ -82,7 +82,7 @@ def simpan_pengaturan(baru: dict) -> None:
         if k in baru and baru[k] is not None:
             p[k] = str(baru[k]).strip()
     DATA.mkdir(parents=True, exist_ok=True)
-    ENV.write_text("# Pengaturan Studio Maliki (berisi kunci AI — jangan dibagikan)\n" +
+    ENV.write_text("# Pengaturan Isanovski Studio (berisi kunci AI — jangan dibagikan)\n" +
                    "\n".join(f"{k}={p.get(k, '')}" for k in KUNCI) + "\n", encoding="utf-8")
     os.chmod(ENV, 0o600)
 
@@ -206,7 +206,7 @@ def penyedia_ai(nilai: str | None) -> str:
     return p.get("LANGGANAN") or "claude-code" if v == "langganan" else v
 
 
-CLI_DIR = Path.home() / ".studio-maliki" / "cli"  # CLI dipasang di sini (tanpa sudo)
+CLI_DIR = Path.home() / ".studio-isanovski" / "cli"  # CLI dipasang di sini (tanpa sudo)
 PAKET_CLI = {"codex": "@openai/codex", "opencode": "opencode-ai", "claude": "@anthropic-ai/claude-code"}
 PERINTAH_LOGIN = {"claude": "claude auth login", "codex": "codex login", "opencode": "opencode auth login"}
 DOMAIN_BOLEH = ("aistudio.google.com", "ollama.com", "nodejs.org", "platform.openai.com",
@@ -523,9 +523,12 @@ def mulai_motion(d: dict) -> dict:
     return {"proyek": nama}
 
 
-def muat_proyek(jenis: str, nama: str) -> dict:
-    f = DATA / jenis / nama
-    out = {"jenis": jenis, "nama": nama}
+def muat_proyek(jenis: str, nama: str, _hasil: bool = False) -> dict:
+    if _hasil:
+        f = Path("/home/ubuntu/studio-clipper/hasil") / nama
+    else:
+        f = DATA / jenis / nama
+    out = {"jenis": jenis, "nama": nama, "_hasil": _hasil}
     for berkas in ("klip.json", "info.json", "permintaan.json", "naskah.json"):
         p = f / berkas
         if p.exists():
@@ -560,6 +563,23 @@ def jejak_klip(nama: str, no: int) -> dict:
         return {"jejak": [], "galat": (r.stderr or "")[-300:]}
 
 
+def daftar_file(jenis: str) -> list[dict]:
+    """Daftar file video yang sudah diupload di folder unggahan/ atau aset/."""
+    folder = DATA / jenis
+    out = []
+    if not folder.exists():
+        return out
+    for f in sorted(folder.glob("*"), reverse=True):
+        if f.is_file() and f.suffix.lower() in (".mp4", ".mov", ".mkv", ".avi", ".webm", ".flv"):
+            try:
+                ukuran = f.stat().st_size
+                out.append({"nama": f.name, "jalur": str(f), "ukuran": ukuran,
+                            "ukuran_txt": f"{ukuran / 1024 / 1024:.1f} MB"})
+            except OSError:
+                continue
+    return out
+
+
 def daftar_proyek() -> list[dict]:
     out = []
     for jenis in ("klip", "motion"):
@@ -573,6 +593,34 @@ def daftar_proyek() -> list[dict]:
             out.append({"jenis": jenis, "nama": f.name, "judul": judul, "jumlah": jumlah,
                         "gambar": p.get("gambar", ""), "durasi": (p.get("info") or {}).get("durasi"),
                         "ai": (p.get("info") or {}).get("ai", "")})
+
+    # Scan /home/ubuntu/studio-clipper/hasil/ for legacy CLI renders
+    hasil_root = Path("/home/ubuntu/studio-clipper/hasil")
+    if hasil_root.exists():
+        for f in sorted(hasil_root.glob("*"), reverse=True):
+            if not f.is_dir():
+                continue
+            klip_json = f / "klip.json"
+            info_json = f / "info.json"
+            gambar = f / "gambar.jpg"
+            if not klip_json.exists():
+                continue
+            try:
+                klip_data = json.loads(klip_json.read_text(encoding="utf-8"))
+                info_data = json.loads(info_json.read_text(encoding="utf-8")) if info_json.exists() else {}
+            except (json.JSONDecodeError, OSError):
+                continue
+            klip_list = klip_data if isinstance(klip_data, list) else klip_data.get("klip", [])
+            if not isinstance(klip_list, list) or not klip_list:
+                continue
+            judul = info_data.get("judul") or f.name
+            jumlah = len(klip_list)
+            durasi = info_data.get("durasi")
+            ai = info_data.get("ai", "")
+            out.append({"jenis": "klip", "nama": f.name, "judul": judul, "jumlah": jumlah,
+                        "gambar": str(gambar) if gambar.exists() else "", "durasi": durasi, "ai": ai,
+                        "_hasil": True})
+
     return sorted(out, key=lambda x: x["nama"], reverse=True)[:50]
 
 
@@ -594,8 +642,23 @@ class H(BaseHTTPRequestHandler):
         self.send_response(kode)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(b)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Nama-File, X-Jenis, X-Izin, Origin")
         self.end_headers()
         self.wfile.write(b)
+
+    def do_OPTIONS(self):
+        if not self._asal_aman():
+            self.send_response(403)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Nama-File, X-Jenis, X-Izin, Origin")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def _file(self, p: Path):
         if not p.is_file():
@@ -675,12 +738,23 @@ class H(BaseHTTPRequestHandler):
                 return self._json(status_ai())
             if jalur == "/api/proyek":
                 return self._json(daftar_proyek())
+            if jalur == "/api/file":
+                jenis = parse_qs(urlparse(self.path).query).get("jenis", ["unggahan"])[0]
+                if jenis not in ("unggahan", "aset"):
+                    return self._json({"galat": "jenis tidak valid"}, 400)
+                return self._json({"file": daftar_file(jenis)})
             if m := re.match(r"^/api/jejak/([\w-]+)/(\d+)$", jalur):
                 return self._json(jejak_klip(m.group(1), int(m.group(2))))
             if m := re.match(r"^/api/proyek/(klip|motion)/([\w-]+)$", jalur):
-                return self._json(muat_proyek(m.group(1), m.group(2)))
+                p = muat_proyek(m.group(1), m.group(2))
+                if not p.get("klip") and not p.get("info"):
+                    p = muat_proyek(m.group(1), m.group(2), _hasil=True)
+                return self._json(p)
             if m := re.match(r"^/berkas/(klip|motion)/([\w-]+)/([\w.-]+)$", jalur):
-                return self._file(DATA / m.group(1) / m.group(2) / m.group(3))
+                f = DATA / m.group(1) / m.group(2) / m.group(3)
+                if not f.exists():
+                    f = Path("/home/ubuntu/studio-clipper/hasil") / m.group(2) / m.group(3)
+                return self._file(f)
             if m := re.match(r"^/font/([\w.-]+\.ttf)$", jalur):  # font preset klip (OFL) untuk pratinjau
                 return self._file(KLIP / "font" / m.group(1))
             if jalur.startswith("/aset/"):
@@ -757,7 +831,21 @@ class H(BaseHTTPRequestHandler):
                 f = (DATA / d.get("jenis", "") / re.sub(r"[^\w-]", "", d.get("nama", ""))).resolve()
                 if f.is_dir() and DATA.resolve() in f.parents and f.parent.name in ("klip", "motion"):
                     shutil.rmtree(f)
+                else:
+                    f2 = Path("/home/ubuntu/studio-clipper/hasil") / re.sub(r"[^\w-]", "", d.get("nama", ""))
+                    if f2.is_dir():
+                        shutil.rmtree(f2)
                 return self._json({"ok": True})
+            if jalur == "/api/hapus-file":
+                jenis = d.get("jenis", "unggahan")
+                if jenis not in ("unggahan", "aset"):
+                    return self._json({"galat": "jenis tidak valid"}, 400)
+                nama = re.sub(r"[^\w.-]", "", d.get("nama", ""))
+                f = (DATA / jenis / nama).resolve()
+                if not f.is_file() or DATA.resolve() not in f.parents:
+                    return self._json({"galat": "berkas tidak ditemukan"}, 404)
+                f.unlink()
+                return self._json({"ok": True, "nama": nama})
             if jalur == "/api/klip":
                 return self._json(mulai_klip(d))
             if jalur == "/api/motion":
@@ -765,10 +853,30 @@ class H(BaseHTTPRequestHandler):
             if jalur == "/api/unduh":
                 f = (DATA / d.get("jenis", "") / d.get("nama", "") / d.get("file", "")).resolve()
                 if not f.is_file() or DATA.resolve() not in f.parents:
+                    f = Path("/home/ubuntu/studio-clipper/hasil") / d.get("nama", "") / d.get("file", "")
+                if not f.is_file():
                     return self._json({"galat": "berkas tidak ditemukan"}, 404)
                 tujuan = Path.home() / "Downloads" / f"{d.get('nama')}-{f.name}"
                 shutil.copy(f, tujuan)
                 return self._json({"jalur": str(tujuan)})
+            if jalur == "/api/unduh-file":
+                f = (DATA / d.get("jenis", "") / d.get("nama", "") / d.get("file", "")).resolve()
+                if not f.is_file() or DATA.resolve() not in f.parents:
+                    f = Path("/home/ubuntu/studio-clipper/hasil") / d.get("nama", "") / d.get("file", "")
+                if not f.is_file():
+                    return self._json({"galat": "berkas tidak ditemukan"}, 404)
+                self.send_response(200)
+                self.send_header("Content-Type", "video/mp4")
+                self.send_header("Content-Disposition", f'attachment; filename="{f.name}"')
+                self.send_header("Content-Length", str(f.stat().st_size))
+                self.end_headers()
+                with open(f, "rb") as fh:
+                    while True:
+                        blok = fh.read(1 << 16)
+                        if not blok:
+                            break
+                        self.wfile.write(blok)
+                return
             if jalur == "/api/matikan":
                 KERJA.batal()
                 threading.Timer(0.3, lambda: os._exit(0)).start()
@@ -810,7 +918,7 @@ class ServerStudio(ThreadingHTTPServer):
 def server_hidup(url: str) -> bool:
     import urllib.request
     try:
-        with urllib.request.urlopen(url + "/api/status", timeout=1) as r:  # hanya Studio Maliki yang dianggap
+        with urllib.request.urlopen(url + "/api/status", timeout=1) as r:  # hanya Isanovski Studio yang dianggap
             d = json.loads(r.read().decode("utf-8", "replace") or "null")
             return isinstance(d, dict) and {"jenis", "status", "log"} <= d.keys()
     except Exception:  # noqa: BLE001

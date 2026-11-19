@@ -98,11 +98,12 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
   <p class="sub">Tempel link YouTube atau seret file video. Semua diproses di laptopmu.</p>
   <div class="kartu">
     <h2>1. Sumber video</h2>
-    <div style="display:flex;gap:8px;">
-      <input class="input" id="sumber" placeholder="https://youtube.com/watch?v=… atau seret file video">
+    <div style="display:flex;gap:8px;align-items:end;">
+      <input class="input" id="sumber" placeholder="https://youtube.com/watch?v=… atau pilih file di bawah" style="flex:1;">
       <input type="file" id="pilihFile" accept="video/*" hidden>
       <button class="tombol kedua" id="tblFile">Pilih file</button>
     </div>
+    <div id="daftarSumber" style="margin-top:8px;"></div>
 
     <h2 style="margin-top:20px">2. Atur klip</h2>
     <div class="pil" id="pilDurasi">
@@ -141,6 +142,7 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
         <button class="tombol kedua kecil" id="tblFacecam">Pilih file facecam</button>
         <span id="nFacecam">belum ada</span>
       </div>
+      <div id="daftarFacecam" style="margin-top:8px;"></div>
     </div>
     <div style="margin-top:12px;">
       <label>Preset cari momen</label>
@@ -230,9 +232,17 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
 <!-- RIWAYAT -->
 <section class="halaman" id="h-riwayat">
   <h1>Riwayat proyek</h1>
-  <p class="sub">Semua hasil tersimpan di laptopmu.</p>
+  <p class="sub">Semua hasil tersimpan di VPS. Klik proyek untuk lihat detail klip.</p>
   <input class="input" id="cariRiwayat" placeholder="Cari proyek…" style="max-width:360px;margin-bottom:14px;">
   <div class="daftar" id="daftarProyek"></div>
+</section>
+
+<!-- RIWAYAT DETAIL -->
+<section class="halaman" id="h-riwayat-detail" style="display:none;">
+  <h1 id="detailJudul">Detail Proyek</h1>
+  <p class="sub" id="detailInfo"></p>
+  <button class="tombol kedua" onclick="document.getElementById('h-riwayat-detail').style.display='none';document.getElementById('h-riwayat').style.display='block';muatRiwayat();">← Kembali</button>
+  <div id="detailKlip"></div>
 </section>
 
 <!-- PENGATURAN -->
@@ -275,11 +285,11 @@ const esc=(s)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':
 const toast=(t,galat)=>{const el=$('#toast');el.textContent=t;el.className='toast tampil'+(galat?' galat':'');clearTimeout(el._t);el._t=setTimeout(()=>el.className='toast',galat?7000:2600);};
 const api=async(url,body)=>{const r=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw new Error(j.galat||'Gagal');return j;};
 
-$$('.nav').forEach(n=>n.onclick=()=>{$$('.nav').forEach(x=>x.classList.toggle('aktif',x===n));$$('.halaman').forEach(x=>x.classList.toggle('aktif',x.id==='h-'+n.dataset.ke));if(n.dataset.ke==='riwayat')muatRiwayat();if(n.dataset.ke==='pengaturan')muatPengaturan();});
+$$('nav button').forEach(n=>n.onclick=()=>{$$('nav button').forEach(x=>x.classList.toggle('aktif',x===n));$$('.halaman').forEach(x=>x.classList.toggle('aktif',x.id==='h-'+n.dataset.ke));if(n.dataset.ke==='riwayat')muatRiwayat();if(n.dataset.ke==='pengaturan')muatPengaturan();if(n.dataset.ke==='beranda')muatBeranda();});
 
 // ---- KLIP ----
 $('#tblFile').onclick=()=>$('#pilihFile').click();
-$('#pilihFile').onchange=async(e)=>{const f=e.target.files[0];if(!f)return;const r=await fetch('/api/unggah',{method:'POST',headers:{'X-Nama-File':f.name},body:f});const j=await r.json();$('#sumber').value=j.jalur;toast('File tersimpan: '+f.name);};
+$('#pilihFile').onchange=async(e)=>{const f=e.target.files[0];if(!f)return;const r=await fetch('/api/unggah',{method:'POST',headers:{'X-Nama-File':f.name},body:f});const j=await r.json();$('#sumber').value=j.jalur;toast('File tersimpan: '+f.name);muatFileUpload();};
 $('#pilDurasi').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilDurasi button').forEach(x=>x.classList.toggle('aktif',x===b));};
 $('#pilFace').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilFace button').forEach(x=>x.classList.toggle('aktif',x===b));$('#bFaceManual').style.display=b.dataset.v==='manual'?'':'none';};
 $('#gFaceX').oninput=(e)=>{$('#nFaceX').textContent=(e.target.value/100).toFixed(2)+(e.target.value==50?' (tengah)':e.target.value<50?' (kiri)':' (kanan)');};
@@ -287,10 +297,80 @@ $('#pilLayout').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$
 let facecamPath='';
 $('#tblFacecam').onclick=()=>$('#pilihFacecam').click();
 $('#pilihFacecam').onchange=async(e)=>{const f=e.target.files[0];if(!f)return;const r=await fetch('/api/unggah',{method:'POST',headers:{'X-Nama-File':f.name,'X-Jenis':'aset'},body:f});const j=await r.json();facecamPath=j.jalur;$('#nFacecam').textContent=f.name;toast('Facecam tersimpan: '+f.name);};
+
+// Muat daftar file sumber (unggahan)
+async function muatSumber(){
+  try{
+    const j=await api('/api/file?jenis=unggahan');
+    const el=$('#daftarSumber');
+    if(!j.file||!j.file.length){
+      el.innerHTML='<div style="font-size:12px;color:#9aa3ad;margin-top:4px;">Belum ada file sumber di VPS</div>';
+      return;
+    }
+    el.innerHTML='<div style="font-size:12px;color:#9aa3ad;margin-bottom:6px;">Pilih sumber video (dari VPS):</div>'+
+      j.file.map(f=>{
+        const selected = sumberPath===f.jalur ? ' border:2px solid #f5a524;' : '';
+        return `<div style="display:flex;align-items:center;gap:6px;margin:3px 0;padding:4px 8px;background:#0e1015;border:1px solid #333a44;border-radius:6px;${selected}">
+          <button onclick="pilihSumber('${f.jalur}','${esc(f.nama)}')" class="tombol kedua kecil" style="flex:1;text-align:left;padding:2px 6px;">${f.nama}</button>
+          <span style="font-size:11px;color:#667;white-space:nowrap;">${f.ukuran_txt}</span>
+          <button onclick="hapusFile('unggahan','${esc(f.nama)}')" class="tombol kedua kecil" style="color:#ef6a5f;padding:1px 6px;">×</button>
+        </div>`;
+      }).join('');
+  }catch{el.innerHTML='<div style="font-size:12px;color:#ef6a5f;margin-top:4px;">Gagal memuat daftar file</div>';}
+}
+
+async function pilihSumber(jalur,nama){
+  sumberPath=jalur;
+  $('#sumber').value=jalur;
+  toast('Sumber: '+nama);
+  muatSumber();
+}
+
+// Muat daftar facecam (aset)
+async function muatFacecam(){
+  try{
+    const j=await api('/api/file?jenis=aset');
+    const el=$('#daftarFacecam');
+    if(!el) return;
+    if(!j.file||!j.file.length){
+      el.innerHTML='<div style="font-size:12px;color:#9aa3ad;margin-top:4px;">Belum ada file facecam di VPS</div>';
+      return;
+    }
+    el.innerHTML='<div style="font-size:12px;color:#9aa3ad;margin-bottom:6px;">Pilih facecam (dari VPS):</div>'+
+      j.file.map(f=>{
+        const selected = facecamPath===f.jalur ? ' border:2px solid #f5a524;' : '';
+        return `<div style="display:flex;align-items:center;gap:6px;margin:3px 0;padding:4px 8px;background:#0e1015;border:1px solid #333a44;border-radius:6px;${selected}">
+          <button onclick="pilihFacecam('${f.jalur}','${esc(f.nama)}')" class="tombol kedua kecil" style="flex:1;text-align:left;padding:2px 6px;">${f.nama}</button>
+          <span style="font-size:11px;color:#667;white-space:nowrap;">${f.ukuran_txt}</span>
+          <button onclick="hapusFile('aset','${esc(f.nama)}')" class="tombol kedua kecil" style="color:#ef6a5f;padding:1px 6px;">×</button>
+        </div>`;
+      }).join('');
+  }catch{el.innerHTML='<div style="font-size:12px;color:#ef6a5f;margin-top:4px;">Gagal memuat daftar facecam</div>';}
+}
+
+async function pilihFacecam(jalur,nama){
+  facecamPath=jalur;
+  $('#nFacecam').textContent=nama;
+  toast('Facecam: '+nama);
+  muatFacecam();
+}
+
+async function hapusFile(jenis,nama){
+  if(!confirm('Hapus file '+nama+'?')) return;
+  try{
+    await api('/api/hapus-file',{jenis,nama});
+    toast('Terhapus: '+nama);
+    if(jenis==='unggahan'){ muatSumber(); if(sumberPath&&sumberPath.includes(nama)){sumberPath='';$('#sumber').value='';} }
+    if(jenis==='aset'){ muatFacecam(); if(facecamPath&&facecamPath.includes(nama)){facecamPath='';$('#nFacecam').textContent='belum ada';} }
+  }catch(e){toast(e.message,true);}
+}
+
+// Muat kedua daftar saat halaman klip dibuka
+async function muatFileUpload(){ await muatSumber(); await muatFacecam(); }
 $('#pilMomen').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilMomen button').forEach(x=>x.classList.toggle('aktif',x===b));};
 $('#pilAI').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilAI button').forEach(x=>x.classList.toggle('aktif',x===b));$('#bAITahap').style.display=b.dataset.v==='lokal'?'none':'';};
 $('#pilAITahap').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilAITahap button').forEach(x=>x.classList.toggle('aktif',x===b));};
-$('#tblKlip').onclick=async()=>{const sumber=$('#sumber').value.trim();if(!sumber)return toast('Isi link YouTube atau pilih file video',true);const d={sumber,jumlah:+$('#pilDurasi .aktif').dataset.v,durasi:+$('#pilDurasi .aktif').dataset.v,layout:$('#pilLayout .aktif').dataset.v,face_mode:$('#pilFace .aktif').dataset.v,face_x:+$('#gFaceX').value/100,momen:$('#pilMomen .aktif').dataset.v,ai:$('#pilAI .aktif').dataset.v,ai_tahap:$('#pilAI .aktif').dataset.v==='lokal'?'': $('#pilAITahap .aktif').dataset.v};if($('#arahan').value)d.arahan=$('#arahan').value;if(d.layout==='gamer'&&facecamPath)d.facecam=facecamPath;try{await api('/api/klip',d);toast('Menganalisis video…');}catch(e){toast(e.message,true);}};
+$('#tblKlip').onclick=async()=>{const sumber=$('#sumber').value.trim();if(!sumber)return toast('Isi link YouTube atau pilih file video',true);const d={sumber,jumlah:1,durasi:+$('#pilDurasi .aktif').dataset.v,layout:$('#pilLayout .aktif').dataset.v,face_mode:$('#pilFace .aktif').dataset.v,face_x:+$('#gFaceX').value/100,momen:$('#pilMomen .aktif').dataset.v,ai:$('#pilAI .aktif').dataset.v,ai_tahap:$('#pilAI .aktif').dataset.v==='lokal'?'': $('#pilAITahap .aktif').dataset.v};if($('#arahan').value)d.arahan=$('#arahan').value;if(d.layout==='gamer'&&facecamPath)d.facecam=facecamPath;try{const r=await api('/api/klip',d);$('#prosesKlip').style.display='';$('#hasilKlip').style.display='none';$('#lkKlip').textContent='Menganalisis…';$('#batangKlip').style.width='0%';$('#logKlip').textContent='';mulaiPolling();toast('Menganalisis video…');}catch(e){toast(e.message,true);}};
 
 // ---- MOTION ----
 $('#pilIsi').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilIsi button').forEach(x=>x.classList.toggle('aktif',x===b));$('#isiTopik').hidden=b.dataset.v!=='topik';$('#isiNaskah').hidden=b.dataset.v!=='naskah';};
@@ -305,13 +385,178 @@ $('#tblSimpan').onclick=async()=>{try{await api('/api/pengaturan',{AI:$('#pilPen
 $('#tblUji').onclick=async()=>{const b=$('#tblUji');b.disabled=true;b.textContent='Menguji…';try{const r=await api('/api/uji-ai',{penyedia:$('#pilPenyedia .aktif').dataset.v});$('#hasilUji').innerHTML=`<div style="padding:10px;border-radius:8px;font-size:13px;">${r.ok?'✓ Tersambung':'✕ Belum tersambung'} · ${esc(r.pesan)}</div>`;}catch(e){$('#hasilUji').innerHTML=`<div style="padding:10px;border-radius:8px;font-size:13px;color:#ef6a5f;">✕ ${esc(e.message)}</div>`;}b.disabled=false;b.textContent='Uji koneksi';};
 
 // ---- RIWAYAT ----
-async function muatRiwayat(){try{const d=await api('/api/proyek');const q=$('#cariRiwayat').value.toLowerCase();const el=$('#daftarProyek');if(!d.length){el.innerHTML='<div class="kartu kosong" style="grid-column:1/-1"><b>Belum ada proyek</b>Buat klip atau video motion pertama.</div>';return;}el.innerHTML=d.filter(p=>!q||p.judul.toLowerCase().includes(q)).map(p=>`<div class="kartu item"><div class="jenis">${p.jenis}</div><h4>${esc(p.judul)}</h4><small>${p.nama.replace(/(\\d{4})(\\d\\d)(\\d\\d)-(\\d\\d)(\\d\\d).*/,'$3/$2/$1 $4:$5')} · ${p.jumlah} ${p.jenis==='klip'?'klip':'video'}${p.durasi?' · '+jam(p.durasi):''}${p.ai?' · '+esc(p.ai):''}</small></div>`).join('');$$('.item',el).forEach(it=>it.onclick=async()=>{const h=await api(`/api/proyek/${it.dataset.j}/${it.dataset.n}`);});}catch{}}
+async function muatRiwayat(){
+  try{
+    const d=await api('/api/proyek');
+    const q=$('#cariRiwayat').value.toLowerCase();
+    const el=$('#daftarProyek');
+    if(!d.length){
+      el.innerHTML='<div class="kartu kosong" style="grid-column:1/-1"><b>Belum ada proyek</b>Buat klip atau video motion pertama.</div>';
+      return;
+    }
+    el.innerHTML=d.filter(p=>!q||p.judul.toLowerCase().includes(q)).map(p=>{
+      const isKlip = p.jenis === 'klip';
+      const thumb = p.gambar ? `/berkas/${p.jenis}/${p.nama}/gambar.jpg` : '';
+      return `<div class="kartu item" onclick="lihatDetail('${p.jenis}','${esc(p.nama)}')" style="cursor:pointer;">
+        ${thumb ? `<img src="${thumb}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px;">` : ''}
+        <div class="jenis">${p.jenis}</div>
+        <h4>${esc(p.judul)}</h4>
+        <small>${p.nama.replace(/(\\d{4})(\\d\\d)(\\d\\d)-(\\d\\d)(\\d\\d).*/,'$3/$2/$1 $4:$5')} · ${p.jumlah} ${p.jenis==='klip'?'klip':'video'}${p.durasi?' · '+jam(p.durasi):''}${p.ai?' · '+esc(p.ai):''}</small>
+      </div>`;
+    }).join('');
+  }catch{el.innerHTML='<div class="kartu kosong" style="grid-column:1/-1"><b>Gagal memuat riwayat</b></div>';}
+}
 $('#cariRiwayat').oninput=muatRiwayat;
 
+async function lihatDetail(jenis,nama){
+  try{
+    const h=await api(`/api/proyek/${jenis}/${nama}`);
+    document.getElementById('h-riwayat').style.display='none';
+    document.getElementById('h-riwayat-detail').style.display='block';
+    document.getElementById('detailJudul').textContent = esc(h.judul || nama);
+    const info = h.info || {};
+    const klip = h.klip || [];
+    let infoHtml = `<strong>Sumber:</strong> ${esc(info.sumber || '-')} · <strong>Durasi:</strong> ${info.durasi ? info.durasi.toFixed(0)+' dtk' : '-'} · <strong>AI:</strong> ${esc(h.ai || '-')}`;
+    document.getElementById('detailInfo').innerHTML = infoHtml;
+    
+    const el = document.getElementById('detailKlip');
+    if(!klip.length){
+      el.innerHTML = '<div style="padding:20px;text-align:center;color:#9aa3ad;">Belum ada klip yang dirender.</div>';
+      return;
+    }
+    el.innerHTML = '<div style="font-size:12px;color:#9aa3ad;margin-bottom:10px;">Klik video untuk putar, atau tombol unduh untuk simpan ke laptop.</div>' +
+      klip.map(k=>{
+        const videoUrl = `/berkas/${jenis}/${nama}/${k.file}`;
+        return `<div class="kartu-klip" style="margin:12px 0;">
+          <video src="${videoUrl}" controls style="width:160px;aspect-ratio:9/16;border-radius:8px;background:#000;object-fit:cover;"></div>
+          <div style="flex:1;">
+            <h4 style="margin:0 0 4px;">${esc(k.judul || 'Klip')}</h4>
+            <div style="font-size:12px;color:#9aa3ad;margin-bottom:6px;">${k.mulai.toFixed(0)}–${k.selesai.toFixed(0)}s · skor ${k.skor}</div>
+            <button class="tombol kedua kecil" onclick="unduhFile('${jenis}','${nama}','${esc(k.file)}')" style="margin-right:6px;">Unduh</button>
+            <button class="tombol utama kecil" onclick="this.parentElement.querySelector('video').play()">Putar</button>
+            <button class="tombol kedua kecil" onclick="hapusProyek('${jenis}','${esc(nama)}')" style="color:#ef6a5f;">Hapus</button>
+          </div>
+        </div>`;
+      }).join('');
+  }catch(e){toast(e.message,true);}
+}
+
+async function hapusProyek(jenis,nama){
+  if(!confirm('Hapus proyek '+nama+' dan semua klipnya?')) return;
+  try{
+    await api('/api/hapus-proyek',{jenis,nama});
+    toast('Terhapus: '+nama);
+    document.getElementById('h-riwayat-detail').style.display='none';
+    document.getElementById('h-riwayat').style.display='block';
+    muatRiwayat();
+  }catch(e){toast(e.message,true);}
+}
+
 // ---- BERANDA ----
-async function muatBeranda(){try{const d=await api('/api/proyek');$('#miniProyek').innerHTML=d.length?d.slice(0,4).map(p=>`<div class="kartu item"><div class="jenis">${p.jenis}</div><h4>${esc(p.judul)}</h4><small>${p.nama.replace(/(\\d{4})(\\d\\d)(\\d\\d)-(\\d\\d)(\\d\\d).*/,'$3/$2/$1 $4:$5')} · ${p.jumlah} ${p.jenis==='klip'?'klip':'video'}</small></div>`).join(''):'<div class="kartu kosong" style="grid-column:1/-1"><b>Belum ada proyek</b>Mulai dari salah satu tombol di atas.</div>';}catch{}}
+async function muatBeranda(){try{const d=await api('/api/proyek');$('#miniProyek').innerHTML=d.length?d.slice(0,4).map(p=>`<div class="kartu item" data-j="${esc(p.jenis)}" data-n="${esc(p.nama)}"><div class="jenis">${p.jenis}</div><h4>${esc(p.judul)}</h4><small>${p.nama.replace(/(\\d{4})(\\d\\d)(\\d\\d)-(\\d\\d)(\\d\\d).*/,'$3/$2/$1 $4:$5')} · ${p.jumlah} ${p.jenis==='klip'?'klip':'video'}</small></div>`).join(''):'<div class="kartu kosong" style="grid-column:1/-1"><b>Belum ada proyek</b>Mulai dari salah satu tombol di atas.</div>';}catch{}}
 function jam(d){d=Math.max(0,d);const m=Math.floor(d/60),s=Math.floor(d%60);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}
 muatPengaturan();
+muatBeranda();
+muatFileUpload();
+
+// Tombol aksi di beranda (data-ke="klip" / data-ke="motion")
+$$('button[data-ke]').forEach(b=>{b.onclick=()=>{$$('nav button').forEach(x=>x.classList.remove('aktif'));$$('.halaman').forEach(x=>x.classList.remove('aktif'));const target=`h-${b.dataset.ke}`;const el=document.getElementById(target);if(el)el.classList.add('aktif');const nb=document.querySelector(`nav button[data-ke="${b.dataset.ke}"]`);if(nb)nb.classList.add('aktif');if(b.dataset.ke==='riwayat')muatRiwayat();if(b.dataset.ke==='pengaturan')muatPengaturan();if(b.dataset.ke==='beranda')muatBeranda();;}});
+
+// Tombol batalkan proses
+$$('button[data-batal]').forEach(b=>{b.onclick=()=>{document.querySelectorAll('.proses').forEach(p=>p.style.display='none');document.querySelectorAll('.hasil').forEach(h=>h.style.display='none');};});
+
+// ---- POLING PROGRES ----
+let timerPoll=null;
+async function mulaiPolling(){
+  if(timerPoll)clearInterval(timerPoll);
+  timerPoll=setInterval(async()=>{
+    try{
+      const s=await api('/api/status');
+      $('#lkKlip').textContent=s.status==='jalan'?(s.log[s.log.length-1]||'Sedang diproses…'):(s.status==='selesai'?'Selesai':'Gagal');
+      const log=s.log||[];
+      $('#logKlip').textContent=log.join('\n');
+      $('#logKlip').scrollTop=$('#logKlip').scrollHeight;
+      if(s.status==='jalan'){
+        const pct=Math.min(95,Math.max(10,(log.length/400)*100));
+        $('#batangKlip').style.width=pct+'%';
+      } else {
+        $('#batangKlip').style.width='100%';
+        clearInterval(timerPoll);
+        timerPoll=null;
+        if(s.status==='selesai'){
+          $('#prosesKlip').style.display='none';
+          $('#hasilKlip').style.display='';
+          let html='<div class="kartu"><b>Selesai</b> ';
+          if(s.hasil && s.hasil.klip && Array.isArray(s.hasil.klip)){
+            html+='<div style="margin-top:8px;"><b>Klip yang ditemukan:</b></div>';
+            s.hasil.klip.forEach(k=>{
+              html+=`<div style="margin:4px 0;padding:6px;border:1px solid #333a44;border-radius:6px;background:#0e1015;">
+                <b>${k.judul}</b> (${k.mulai.toFixed(0)}–${k.selesai.toFixed(0)}s, skor ${k.skor})
+                <button class="tombol kedua kecil" onclick="renderKlip('${s.hasil.nama}',${k.no})" style="margin-left:8px;">Render klip ${k.no}</button>
+              </div>`;
+            });
+            html+='<div style="margin-top:8px;"><button class="tombol utama" onclick="renderKlipAll(\'${s.hasil.nama}\')">Render semua klip</button></div>';
+            html+='<div id="daftarUnduh" style="margin-top:10px;"></div>';
+          } else {
+            html+='Cek folder hasil di VPS atau unduh berkas klip.</div>';
+          }
+          $('#hasilKlip').innerHTML=html;
+        }
+      }
+    } catch(e){
+      clearInterval(timerPoll);
+      timerPoll=null;
+      $('#lkKlip').textContent='Gagal terhubung ke server.';
+    }
+  },2000);
+}
+
+async function unduhFile(jenis,nama,file){
+  const url=`/api/unduh-file?jenis=${encodeURIComponent(jenis)}&nama=${encodeURIComponent(nama)}&file=${encodeURIComponent(file)}`;
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=file;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  toast('Mengunduh '+file+'…');
+}
+
+async function renderKlip(nama,no){
+  const btn=event.target;
+  const lama=btn.textContent;
+  btn.textContent='Merender…'; btn.disabled=true;
+  try{
+    await api('/api/klip-render',{nama,pilih:String(no),gaya:{layout:'gamer',facecam:facecamPath||''}});
+    toast('Render klip '+no+' selesai');
+    muatUnduh(nama);
+  }catch(e){toast(e.message,true);}finally{btn.textContent=lama; btn.disabled=false;}
+}
+
+async function renderKlipAll(nama){
+  const btn=event.target;
+  const lama=btn.textContent;
+  btn.textContent='Merender semua…'; btn.disabled=true;
+  try{
+    await api('/api/klip-render',{nama,pilih:'',gaya:{layout:'gamer',facecam:facecamPath||''}});
+    toast('Render semua klip selesai');
+    muatUnduh(nama);
+  }catch(e){toast(e.message,true);}finally{btn.textContent=lama; btn.disabled=false;}
+}
+
+async function muatUnduh(nama){
+  try{
+    const p=await api(`/api/proyek/klip/${nama}`);
+    const el=$('#daftarUnduh');
+    let html='<div style="margin-top:8px;"><b>Unduh hasil render:</b></div>';
+    if(p.klip && Array.isArray(p.klip)){
+      p.klip.forEach(k=>{
+        if(k.file) html+=`<button class="tombol kedua kecil" onclick="unduhFile('klip','${nama}','${k.file}')" style="margin:4px 4px 4px 0;">${k.file}</button>`;
+      });
+    }
+    el.innerHTML=html;
+  }catch{}
+}
 </script>
 </body>
 </html>

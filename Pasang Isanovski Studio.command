@@ -1,15 +1,15 @@
 #!/bin/bash
-# Installer Studio Maliki untuk macOS — klik dua kali file ini.
+# Installer Isanovski Studio untuk macOS — klik dua kali file ini.
 # Memasang: uv (kalau belum ada), dependensi Klip & Motion, lalu membuat
-# aplikasi "Studio Maliki" di folder Applications pengguna dan pintasan di Desktop.
+# aplikasi "Isanovski Studio" di folder Applications pengguna dan pintasan di Desktop.
 set -e
 ALAT="$(cd "$(dirname "$0")" && pwd)"
-APP="$HOME/Applications/Studio Maliki.app"
+APP="$HOME/Applications/Isanovski Studio.app"
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 echo ""
 echo "  ┌─────────────────────────────────────┐"
-echo "  │   Memasang Studio Maliki (Klip+Motion) │"
+echo "  │   Memasang Isanovski Studio (Klip+Motion) │"
 echo "  └─────────────────────────────────────┘"
 echo ""
 
@@ -26,7 +26,7 @@ echo "• Menyiapkan jendela aplikasi…"
 uv sync -q --script "$ALAT/studio/studio.py"
 
 # 4) Buat aplikasi .app
-echo "• Membuat aplikasi Studio Maliki…"
+echo "• Membuat aplikasi Isanovski Studio…"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
@@ -42,9 +42,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleName</key><string>Studio Maliki</string>
-  <key>CFBundleDisplayName</key><string>Studio Maliki</string>
-  <key>CFBundleIdentifier</key><string>id.biz.malikisaputra.studio</string>
+  <key>CFBundleName</key><string>Isanovski Studio</string>
+  <key>CFBundleDisplayName</key><string>Isanovski Studio</string>
+  <key>CFBundleIdentifier</key><string>id.biz.isanovskisaputra.studio</string>
   <key>CFBundleVersion</key><string>1.0</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundleExecutable</key><string>studio</string>
@@ -56,9 +56,9 @@ PLIST
 
 cat > "$APP/Contents/MacOS/studio" <<LAUNCH
 #!/bin/bash
-# Peluncur Studio Maliki: nyalakan server lokal (kalau belum), lalu buka jendela aplikasi.
+# Peluncur Isanovski Studio: nyalakan server lokal (kalau belum), lalu buka jendela aplikasi.
 export PATH="\$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH"
-DATA="\$HOME/Studio Maliki"
+DATA="\$HOME/Isanovski Studio"
 mkdir -p "\$DATA"
 # Jendela native (WebKit bawaan macOS) — tidak butuh Chrome. Tutup jendela = mesin berhenti.
 exec uv run -q "$ALAT/studio/studio.py" > "\$DATA/studio.log" 2>&1
@@ -67,11 +67,11 @@ chmod +x "$APP/Contents/MacOS/studio"
 touch "$APP"
 
 # 5) Pintasan di Desktop
-ln -sfn "$APP" "$HOME/Desktop/Studio Maliki"
+ln -sfn "$APP" "$HOME/Desktop/Isanovski Studio"
 
 echo ""
-echo "✅ Selesai! Buka \"Studio Maliki\" dari Desktop atau Launchpad/Applications."
-echo "   Hasil kerja tersimpan di: $HOME/Studio Maliki"
+echo "✅ Selesai! Buka \"Isanovski Studio\" dari Desktop atau Launchpad/Applications."
+echo "   Hasil kerja tersimpan di: $HOME/Isanovski Studio"
 echo "   Kalau folder alat ini dipindah, jalankan installer ini lagi."
 echo ""
 open "$APP"

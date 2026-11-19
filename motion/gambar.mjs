@@ -1,4 +1,4 @@
-// kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
+// kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
 // AI menggambar objek SVG untuk tiap adegan (satu kali panggil untuk semua adegan).
 // Pakai: node gambar.mjs naskah/topikku.json [--ai=gemini|openai|claude-code|codex|opencode]
 // Hasil: adegan[i].gambar = SVG (sudah disaring). Gaya ilustrasi (kapur, piksel, dll.) menggambar ulang SVG ini lewat filter.

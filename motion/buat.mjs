@@ -1,5 +1,5 @@
-// kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
-// Motion Maliki — naskah JSON → suara → subtitle → animasi → MP4 9:16.
+// kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
+// Motion Isanovski — naskah JSON → suara → subtitle → animasi → MP4 9:16.
 // Pakai: node buat.mjs naskah/contoh.json [--gaya=neon] [--suara=say|rekaman|tanpa] [--suara-mac=Damayanti]
 import {execFileSync} from 'node:child_process';
 import {readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, rmSync} from 'node:fs';
@@ -14,7 +14,7 @@ const nama = basename(fileNaskah, '.json');
 if (opsi.gaya) naskah.gaya = opsi.gaya;
 // SVG objek per adegan (gambar.mjs atau naskah tempelan): saring lagi sebelum dirender
 naskah.adegan.forEach((a, i) => { if (a.gambar) a.gambar = svgAman(a.gambar, `s${i + 1}`) || undefined; });
-// nama akun hanya dari naskah/pengaturan pengguna — jangan sampai ikut nilai bawaan contoh.json (@malikisaputra)
+// nama akun hanya dari naskah/pengaturan pengguna — jangan sampai ikut nilai bawaan contoh.json (@isanovskisaputra)
 naskah.handle = typeof naskah.handle === 'string' ? naskah.handle : (process.env.HANDLE || '');
 
 const WIN = process.platform === 'win32';
@@ -108,7 +108,7 @@ const fileProps = resolve('hasil', `${nama}.props.json`);
 writeFileSync(fileProps, JSON.stringify(naskah, null, 2));
 const keluar = resolve('hasil', `${nama}-${naskah.gaya}.mp4`);
 log(`Render gaya "${naskah.gaya}" → ${keluar}`);
-// --props memakai jalur RELATIF (tanpa huruf drive & spasi "Studio Maliki"): di Windows jalur absolut bisa gagal dibaca
+// --props memakai jalur RELATIF (tanpa huruf drive & spasi "Isanovski Studio"): di Windows jalur absolut bisa gagal dibaca
 // dan Remotion diam-diam memakai naskah contoh.json.
 const propsRel = join('hasil', `${nama}.props.json`).split('\\').join('/');
 execFileSync(process.execPath, [...REMOTION, 'render', 'src/index.ts', 'Motion', keluar, `--props=${propsRel}`, '--log=error'], {

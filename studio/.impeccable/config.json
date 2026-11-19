@@ -19,13 +19,13 @@
           "alat/studio/index.html"
         ],
         "createdAt": "2026-11-13T14:45:49.087Z",
-        "reason": "Maliki minta gaya disamakan dengan malikisaputra.biz.id/kode, yang memakai label mono huruf kecil letter-spacing .08em"
+        "reason": "Isanovski minta gaya disamakan dengan isanovskisaputra.biz.id/kode, yang memakai label mono huruf kecil letter-spacing .08em"
       },
       {
         "rule": "overused-font",
         "value": "space grotesk",
         "createdAt": "2026-11-14T02:35:02.052Z",
-        "reason": "Maliki minta UI Studio disamakan dengan situs malikisaputra.biz.id/kode (font situs: Space Grotesk)"
+        "reason": "Isanovski minta UI Studio disamakan dengan situs isanovskisaputra.biz.id/kode (font situs: Space Grotesk)"
       },
       {
         "rule": "pulsing-dot",
@@ -34,7 +34,7 @@
           "index.html"
         ],
         "createdAt": "2026-11-14T02:35:02.070Z",
-        "reason": "Maliki minta animasi senada situs /kode; titik berdenyut dipakai untuk status AI/proses yang memang hidup"
+        "reason": "Isanovski minta animasi senada situs /kode; titik berdenyut dipakai untuk status AI/proses yang memang hidup"
       },
       {
         "rule": "marquee",

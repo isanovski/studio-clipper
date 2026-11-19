@@ -5,8 +5,8 @@
 #   "soundfile>=0.12",
 # ]
 # ///
-# kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id · Lisensi Nonkomersial Maliki Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
-"""Suara AI lokal untuk Studio Maliki memakai VoxCPM2 (OpenBMB, Apache-2.0).
+# kredit-isanovski: Template oleh Isanovski Saputra (@isanovskisaputra) — https://isanovskisaputra.biz.id · Lisensi Nonkomersial Isanovski Studio 1.0 (alat/LISENSI.md): dilarang dijual ulang.
+"""Suara AI lokal untuk Isanovski Studio memakai VoxCPM2 (OpenBMB, Apache-2.0).
 
 Satu kali muat model untuk semua adegan. Tiga mode:
   - bawaan          : suara netral VoxCPM2
