@@ -3,7 +3,9 @@
 """isanovski Studio — pemandu CLI.
 
 Tampilan menu seperti web UI, tapi semuanya di terminal:
-  ./mulai
+  mulai
+
+(jika belum ada di PATH: ln -sf "$(pwd)/mulai" ~/.local/bin/mulai)
 
 Tidak butuh dependensi: cukup Python 3 bawaan. Pekerjaan beratnya tetap
 dijalankan oleh klip/klip.py dan motion/buat.mjs lewat `uv` / `node`.
@@ -14,10 +16,12 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import threading
 import time
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 
@@ -132,34 +136,22 @@ def bersihkan_jalur(teks: str) -> str:
 
 # ── menjalankan proses dengan status hidup ───────────────────────────────────
 class Status:
-    def __init__(self, label: str):
-        self.label, self.mulai, self.aktif, self.baris = label, time.time(), True, ""
-        self.t = threading.Thread(target=self._jalan, daemon=True)
+    """Status satu baris, TANPA spinner/background.
 
-    def _jalan(self):
-        bingkai = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-        i = 0
-        while self.aktif:
-            if not self.baris:
-                detik = int(time.time() - self.mulai)
-                sys.stdout.write(f"\r  {AMBER(bingkai[i % len(bingkai)])} {self.label} {DIM(f'{detik}s')}   ")
-                sys.stdout.flush()
-                i += 1
-            time.sleep(0.15)
+    Spinner berbasis thread menulis \r ke stdout dan bercampur dengan baris
+    output child → layar jadi berantakan dan baris input_user tampak misplaced.
+    Sekarang: cetak satu baris status, laluibiarkan child mencetak sendiri.
+    """
+
+    def __init__(self, label: str):
+        self.label = label
 
     def __enter__(self):
-        if TTY:
-            self.t.start()
+        print(f"  {AMBER('›')} {self.label}…")
         return self
 
-    def henti(self):
-        if self.aktif and TTY:
-            self.aktif = False
-            self.t.join(timeout=1)
-            sys.stdout.write("\r" + " " * (lebar() - 1) + "\r")
-            sys.stdout.flush()
-        else:
-            self.aktif = False
+    def henti(self) -> None:
+        pass
 
     def __exit__(self, *_):
         self.henti()
@@ -178,25 +170,47 @@ def jalan(cmd: list[str], cwd: Path | None = None, label: str = "bekerja", kerin
     print()
     proses = subprocess.Popen(cmd, cwd=str(cwd or AKAR), env=env, text=True,
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
-    status = Status(label)
-    status.__enter__()
-    try:
-        assert proses.stdout is not None
-        for baris in proses.stdout:
-            baris = baris.rstrip()
-            if not baris:
-                continue
-            status.henti()
-            if baris.startswith("•"):
-                print("  " + AMBER("│") + " " + baris.lstrip("• ").strip())
-            else:
-                print("  " + DIM(baris[:lebar() - 4]))
-    finally:
-        status.henti()
+
+    # Ctrl+C (SIGINT) / SIGTERM harus sampai ke child, dan pesannya harus jelas.
+    def teruskan(sig, _frame):
+        try:
+            proses.send_signal(sig)
+        except (ProcessLookupError, OSError):
+            pass
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            signal.signal(sig, teruskan)
+        except (ValueError, OSError):
+            pass
+
+    with Status(label):
+        try:
+            assert proses.stdout is not None
+            for baris in proses.stdout:
+                baris = baris.rstrip()
+                if not baris:
+                    continue
+                if baris.startswith("•"):
+                    print("  " + AMBER("│") + " " + baris.lstrip("• ").strip())
+                else:
+                    print("  " + DIM(baris[:lebar() - 4]))
+        except KeyboardInterrupt:
+            print()
+            info("Diblatalkan (Ctrl+C).")
+            with suppress(ProcessLookupError, OSError):
+                proses.terminate()
+            proses.wait(timeout=30)
+            print()
+            gagal("dibatalkan")
+            return 130
         kode = proses.wait()
     print()
     if kode == 0:
         ok("selesai")
+    elif kode in (130, 143, -2, -15):
+        info("Proses dihentikan sistem (Ctrl+C / SIGTERM).")
+        gagal(f"dibatalkan (kode {kode})")
+        return 130
     else:
         gagal(f"gagal (kode {kode})")
     return kode
@@ -208,7 +222,9 @@ def ada(cmd: str) -> bool:
 
 
 def cek_uv() -> bool:
-    for kandidat in (["uv"], [str(Path.home() / ".local/bin/uv")]):
+    """uv terpasang? (PATH sering tidak memuat ~/.hermes/bin → cek jalur mutlak)"""
+    for kandidat in (["uv"], [str(Path.home() / ".hermes/bin/uv")], [str(Path.home() / ".local/bin/uv")],
+                     [str(Path.home() / ".cargo/bin/uv")], ["/usr/local/bin/uv"]):
         try:
             r = subprocess.run(kandidat + ["--version"], capture_output=True, text=True, timeout=10)
             if r.returncode == 0:
@@ -219,7 +235,15 @@ def cek_uv() -> bool:
 
 
 def uv_cmd() -> str:
-    return shutil.which("uv") or str(Path.home() / ".local/bin/uv")
+    """Cari uv. PATH shell sering tidak memuat ~/.hermes/bin → cari juga di jalur mutlak."""
+    hasil = shutil.which("uv")
+    if hasil:
+        return hasil
+    for calon in (Path.home() / ".hermes/bin/uv", Path.home() / ".local/bin/uv",
+                  Path.home() / ".cargo/bin/uv", Path("/usr/local/bin/uv")):
+        if calon.exists():
+            return str(calon)
+    return "uv"
 
 
 PENGATURAN = Path(os.environ.get("STUDIO_DATA") or (Path.home() / "Studio Maliki")) / "pengaturan.env"
@@ -253,6 +277,16 @@ def sumber_kunci() -> tuple[str, str]:
         if v:
             return v, label
     return "", ""
+
+
+def ada_openrouter() -> bool:
+    """True kalau ada kunci OpenRouter (dipakai untuk AI produksi gratis)."""
+    for f in (KUNCI_ENV, Path.home() / "Studio Maliki" / "pengaturan.env"):
+        if f.exists():
+            for baris in f.read_text(encoding="utf-8", errors="replace").splitlines():
+                if baris.strip().startswith("OPENROUTER_API_KEY=") and baris.split("=", 1)[1].strip():
+                    return True
+    return bool(os.environ.get("OPENROUTER_API_KEY"))
 
 
 def baca_kunci() -> str:
@@ -387,6 +421,42 @@ def alur_klip(kering: bool = False) -> None:
     jumlah = tanya("Jumlah klip", "3")
     durasi = tanya("Durasi tiap klip (detik)", "30")
     print()
+    lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "gamer (wajah atas + gameplay bawah)"], 0)
+    layout = ["tunggal", "gamer"][lay_ke]
+    facecam = ""
+    momen = ""
+    face_mode = "auto"
+    face_x = 0.5
+    if layout == "gamer":
+        print()
+        info("File facecam = video kamera orang (pisah dari game).")
+        for _ in range(2):
+            facecam = bersihkan_jalur(tanya("File facecam", ""))
+            if not facecam:
+                break
+            if Path(facecam).exists() or Path((Path.cwd() / facecam)).exists():
+                break
+            gagal(f"File facecam tidak ditemukan: {facecam}")
+            facecam = ""
+        if not facecam:
+            gagal("Tanpa facecam, layout gamer tidak bisa dipakai → pindah ke tampilan tunggal.")
+            layout = "tunggal"
+        print()
+        mom_ke = pilih("Preset cari momen", ["gamer (teriakan + reaksi wajah + aksi game)", "umum (hook + bicara padat)"], 0)
+        momen = ["gamer", "umum"][mom_ke]
+    else:
+        fm_ke = pilih("Mode bingkai wajah", ["auto (ikuti wajah bicara)", "manual (tentukan posisi)", "fit (layar penuh, jangan potong)"], 0)
+        face_mode = ["auto", "manual", "fit"][fm_ke]
+        if face_mode == "manual":
+            fx = tanya("Posisi wajah 0.0 (kiri) … 1.0 (kanan)", "0.5")
+            try:
+                face_x = float(fx)
+                if not 0 <= face_x <= 1:
+                    raise ValueError
+            except ValueError:
+                gagal("Posisi wajah harus 0.0–1.0, pakai 0.5")
+                face_x = 0.5
+    print()
     ai_ke = pilih("AI produksi", ["lokal (gratis, tanpa AI)", "openrouter (model FREE)", "gemini (butuh kunci)"], 0)
     ai = ["lokal", "openrouter", "gemini"][ai_ke]
     ai_tahap = ""
@@ -403,34 +473,6 @@ def alur_klip(kering: bool = False) -> None:
     arahan = tanya("Cari momen tertentu? (kosong = bebas)", "")
     print()
     wm = tanya("Watermark tengah ('-' = tanpa)", "isanovski Studio")
-    print()
-    lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "facecam (wajah atas)", "pip (wajah kecil kanan bawah)", "gamer (wajah atas + gameplay bawah)"], 0)
-    layout = ["tunggal", "facecam", "pip", "gamer"][lay_ke]
-    facecam = ""
-    momen = ""
-    if layout == "gamer":
-        print()
-        info("File facecam = video kamera orang (pisah dari game).")
-        facecam = bersihkan_jalur(tanya("File facecam", ""))
-        if facecam and not Path(facecam).exists() and not Path((Path.cwd() / facecam)).exists():
-            gagal(f"File facecam tidak ditemukan: {facecam}")
-            facecam = ""
-        print()
-        mom_ke = pilih("Preset cari momen", ["gamer (teriakan + reaksi wajah + aksi game)", "umum (hook + bicara padat)"], 0)
-        momen = ["gamer", "umum"][mom_ke]
-    print()
-    fm_ke = pilih("Mode bingkai wajah", ["auto (ikuti wajah bicara)", "manual (tentukan posisi)", "fit (layar penuh, jangan potong)"], 0)
-    face_mode = ["auto", "manual", "fit"][fm_ke]
-    face_x = 0.5
-    if face_mode == "manual":
-        fx = tanya("Posisi wajah 0.0 (kiri) … 1.0 (kanan)", "0.5")
-        try:
-            face_x = float(fx)
-            if not 0 <= face_x <= 1:
-                raise ValueError
-        except ValueError:
-            gagal("Posisi wajah harus 0.0–1.0, pakai 0.5")
-            face_x = 0.5
 
     if sumber.startswith("http"):
         slug = "youtube"
@@ -443,6 +485,14 @@ def alur_klip(kering: bool = False) -> None:
         n += 1
     print()
     info(f"hasil akan disimpan di {tujuan.relative_to(AKAR)}")
+    ringkas = [f"{jumlah} klip × {durasi} dtk", layout]
+    if momen:
+        ringkas.append(f"momen {momen}")
+    if ai != "lokal":
+        ringkas.append(f"AI {ai}")
+    if facecam:
+        ringkas.append(f"facecam {Path(facecam).name}")
+    print("  " + DIM(" · ".join(ringkas)))
     if not ya("Mulai sekarang?", True):
         return
 
@@ -451,7 +501,9 @@ def alur_klip(kering: bool = False) -> None:
            "--keluar", str(tujuan), "--ai", ai,
            "--layout", layout,
            "--face-mode", face_mode,
-           "--face-x", str(face_x)]
+           "--face-x", str(face_x),
+           # potong audio per 120 dtk: RAM kecil aman + ada progress per chunk
+           "--potong", "120"]
     if arahan:
         cmd += ["--arahan", arahan]
     if wm and wm != "-":
@@ -465,7 +517,10 @@ def alur_klip(kering: bool = False) -> None:
     kode = jalan(cmd, label="menganalisis & merender", kering=kering)
     if kode != 0:
         print()
-        info("Kalau videonya dari YouTube, unduh dulu di laptop lalu seret filenya.")
+        if sumber.startswith("http"):
+            info("Kalau link YouTube-nya bermasalah, unduh dulu di laptop lalu seret filenya.")
+        else:
+            info("Cek pesan di atas: biasanya video gagal dibaca, model Whisper belum terunduh, atau proses dihentikan.")
         return
     hasil_klip(tujuan, kering=kering)
 
@@ -664,13 +719,27 @@ def menu() -> None:
         print()
         return
 
+    if "--help" in sys.argv or "-h" in sys.argv:
+        judul("isanovski Studio — CLI")
+        print("  Perintah:")
+        print("    mulai                 buka menu")
+        print("    mulai --help          bantuan ini")
+        print()
+        print("  Menu: 1) potong video jadi klip  2) topik jadi video animasi")
+        print("         3) kunci AI  4) bantuan  5) keluar")
+        print()
+        print("  Semua kerja berat dijalankan klip/klip.py (Python) dan motion/ (Node).")
+        print()
+        return
+
     while True:
         kunci_ada, kunci_asal = sumber_kunci()
         kunci = f"ada ({kunci_asal})" if kunci_ada else "belum ada"
+        or_key = "ada" if ada_openrouter() else "tidak ada"
         node = "ada" if shutil.which("node") else "tidak ada"
         print()
         garis()
-        print("  " + DIM(f"kunci AI: {kunci}   ·   Node: {node}   ·   {AKAR.name}"))
+        print("  " + DIM(f"kunci AI: {kunci}   ·   OpenRouter: {or_key}   ·   Node: {node}   ·   {AKAR.name}"))
         garis()
         print()
         pilihan = pilih("Mau bikin apa?", [

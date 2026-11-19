@@ -138,7 +138,9 @@ def transkrip(file: Path, model: str, bahasa: str | None, beam: int = 5, potong:
     """
     from faster_whisper import WhisperModel
     log(f"Transkripsi dengan faster-whisper model '{model}' (pertama kali akan mengunduh model)…")
+    log("   Memuat model Whisper (tunggu download pertama kali bisa lama)…")
     m = WhisperModel(model, device="cpu", compute_type="int8", cpu_threads=max(1, (os.cpu_count() or 2)))
+    log(f"   Model {model} siap. Mulai transkripsi…")
     sr = 16000  # decode sendiri dengan ffmpeg bawaan → tidak bergantung versi PyAV
     raw = subprocess.run([ffmpeg(), "-v", "error", "-i", str(file), "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"],
                          capture_output=True, check=True).stdout
@@ -166,7 +168,7 @@ def transkrip(file: Path, model: str, bahasa: str | None, beam: int = 5, potong:
             log(f"   Chunk {i + 1}/{n} selesai ({off:.0f}s–{a1 / sr:.0f}s), total {len(hasil)} kalimat.")
     else:
         segs, info = m.transcribe(audio, language=bahasa, word_timestamps=True, vad_filter=True, beam_size=beam,
-                                  condition_on_previous_text=False, initial_prompt=petunjuk)
+                              condition_on_previous_text=False, initial_prompt=petunjuk, log_progress=True)
         for s in segs:
             kata = [Kata(w.start, w.end, w.word.strip()) for w in (s.words or []) if w.word.strip()]
             hasil.append(Kalimat(s.start, s.end, s.text.strip(), kata))
@@ -265,13 +267,14 @@ EMOSI = re.compile(r"\b(gila|anjir|parah|wtf|omg|no\s?way|insane|goated|brutal|"
                    r"mantap|keren|mampus|nice|clutch|gg|kill|bunuh|mati)\b", re.I)
 
 
-def motion_per_detik(path: Path, fps: float = 4.0, sisi: int = 64) -> np.ndarray:
+def motion_per_detik(path: Path, fps: float = 1.0, sisi: int = 32) -> np.ndarray:
     """Motion per detik (mean absolute difference antar frame) dari video.
 
     Dipakai untuk: reaksi wajah (facecam) dan aksi gameplay.
     Frame di-downscale ke sisi x sisi abu-abu supaya murah.
+    fps rendah (1) biar cepat di VPS 2-core; deteksi gerakan besar tetap tercapai.
     """
-    cmd = [ffmpeg(), "-v", "error", "-i", str(path),
+    cmd = [_ffmpeg(), "-v", "error", "-i", str(path),
            "-vf", f"fps={fps},scale={sisi}:{sisi}:flags=fast_bilinear,format=gray",
            "-f", "rawvideo", "-pix_fmt", "gray", "-"]
     try:
@@ -2307,15 +2310,19 @@ def main() -> None:
     p.add_argument("--broll", choices=["pixabay", "file"], help="sisipkan B-roll: pixabay (butuh PIXABAY_API_KEY) atau file sendiri")
     p.add_argument("--broll-file", nargs="*", default=[], help="video/foto milikmu untuk B-roll (dengan --broll file)")
     p.add_argument("--watermark", help="teks di tengah klip, putih transparan ±50%%, mis. @akunmu")
-    p.add_argument("--layout", default="tunggal", choices=["tunggal", "facecam", "pip", "gamer"], help="tampilan klip: tunggal, facecam, pip, gamer")
+    p.add_argument("--layout", default=None, choices=["tunggal", "facecam", "pip", "gamer"],
+                   help="tampilan klip: tunggal, facecam, pip, gamer (kalau kosong dan CLI interaktif, ditanyakan)")
     p.add_argument("--facecam", help="file facecam kamera untuk layout gamer (2 kamera, game di atas + wajah di bawah)")
     p.add_argument("--face-mode", default="auto", choices=["auto", "manual", "fit"], help="bingkai 9:16: auto (ikuti wajah bicara), manual (tentukan --face-x), fit (layar penuh)")
     p.add_argument("--face-x", type=float, default=0.5, help="posisi wajah 0.0 (kiri) … 1.0 (kanan) untuk --face-mode manual")
     p.add_argument("--gaya", help="JSON gaya render (rasio, latar, fokus, layout, banner, subtitle, musik, …)")
     a = p.parse_args()
 
-    # Konfirmasi interaktif saat jalan langsung via CLI (web studio.py selalu pass --layout)
-    if not a.layout or a.layout == "tunggal":
+    # Konfirmasi interaktif HANYA kalau --layout tidak diberikan sama sekali.
+    # Kalau "tunggal" sudah datang dari ./mulai atau studio.py, jangan tanya lagi
+    # (duplikat prompt = membingungkan, dan input bisa ket吞 salah).
+    if a.layout is None:
+        a.layout = "tunggal"
         if sys.stdin.isatty():
             print("\nPilih layout klip:")
             print("  1. Biasa (tunggal layar)")
