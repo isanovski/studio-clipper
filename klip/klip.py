@@ -275,7 +275,7 @@ def motion_per_detik(path: Path, fps: float = 1.0, sisi: int = 32) -> np.ndarray
     Frame di-downscale ke sisi x sisi abu-abu supaya murah.
     fps rendah (1) biar cepat di VPS 2-core; deteksi gerakan besar tetap tercapai.
     """
-    cmd = [_ffmpeg(), "-v", "error", "-i", str(path),
+    cmd = [ffmpeg(), "-v", "error", "-i", str(path),
            "-vf", f"fps={fps},scale={sisi}:{sisi}:flags=fast_bilinear,format=gray",
            "-f", "rawvideo", "-pix_fmt", "gray", "-"]
     try:
