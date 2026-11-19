@@ -510,6 +510,25 @@ def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
             terpilih.append(c)
         if len(terpilih) == jumlah:
             break
+    # Jika masih kurang, tambahkan yang sedikit tumpang-tindih (overlap < 30%)
+    if len(terpilih) < jumlah:
+        for c in kandidat:
+            if any(c in t for t in terpilih):
+                continue
+            overlap = max(0, min(c.selesai, t.selesai) - max(c.mulai, t.mulai))
+            dur_c = c.selesai - c.mulai
+            if dur_c > 0 and overlap / dur_c < 0.30:
+                terpilih.append(c)
+            if len(terpilih) == jumlah:
+                break
+    # Jika masih kurang, ambil yang tersisa berdasarkan skor tertinggi
+    if len(terpilih) < jumlah:
+        for c in kandidat:
+            if any(c is t for t in terpilih):
+                continue
+            terpilih.append(c)
+            if len(terpilih) == jumlah:
+                break
     if terpilih:  # skor tampilan 0–99 relatif terhadap momen terbaik
         top, bawah = terpilih[0].skor, terpilih[-1].skor
         for c in terpilih:
