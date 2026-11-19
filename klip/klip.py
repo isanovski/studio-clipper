@@ -92,9 +92,10 @@ def ada_audio(file: Path) -> bool:
     """True kalau video sumber punya setidaknya satu stream audio."""
     try:
         r = subprocess.run(
-            [ffmpeg(), "-v", "error", "-i", str(file), "-map", "0:a", "-f", "null", "-"],
+            [ffprobe(), "-v", "error", "-select_streams", "a", "-show_entries",
+             "stream=codec_type", "-of", "csv=p=0", str(file)],
             capture_output=True, text=True, timeout=30)
-        return r.returncode == 0
+        return bool(r.stdout.strip())
     except Exception:
         return False
 
