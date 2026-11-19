@@ -206,6 +206,45 @@ def is_hook(w: str) -> bool:
     return bool(HOOK_AWAL.match(bersih_kata(w)))
 
 
+
+
+# Pembuka yang butuh konteks: pronoun, filler, atau jawaban dari pertanyaan sebelumnya.
+# Viewer baru nggak punya konteks itu → klip langsung lose ("kok nggak masuk").
+KONTEKS_PEMBUKA = re.compile(r"^(ini|itu|oi|eh|ya|nah|oke|duh|situ|disini|gitu|begini|kayaknya|emang|terus|lalu|abis|habis|ntar|soalnya|yaa|yaaa|iya|iyaa|betul|ih|nah|aduh|wah|hai|hallo|hello)\b", re.I)
+
+
+def perbaiki_pembuka(kal_utuh: list[Kalimat], i: int, j: int, a: float, b: float) -> tuple[float, float, str]:
+    """Kalau klip buka dengan kata konteks-dependent, geser start ke kalimat yang berdiri sendiri.
+
+    Aturan (mengikuti openshorts "STANDS ALONE"): geser ke kalimat BERIKUTNYA dulu (isi yang
+    masih nyambung), kalau tidak cukup durasi baru geser mundur ke kalimat sebelumnya.
+    """
+    try:
+        if not (0 <= i < len(kal_utuh)):
+            return a, b, ""
+        s = kal_utuh[i]
+        awal = (s.kata[0].teks if s.kata else ((s.teks.split() or [""])[0]))
+        if not KONTEKS_PEMBUKA.match(bersih_kata(awal)):
+            return a, b, ""
+        # geser ke kalimat berikutnya sampai pembukanya berdiri sendiri (maks 3 langkah, maks +4 dtk)
+        for langkah in range(1, 4):
+            if i + langkah > j or i + langkah >= len(kal_utuh):
+                break
+            nxt = kal_utuh[i + langkah]
+            if nxt.mulai - a > 4.0 or (b - nxt.mulai) < 10:
+                break
+            awal_nxt = (nxt.kata[0].teks if nxt.kata else ((nxt.teks.split() or [""])[0]))
+            if KONTEKS_PEMBUKA.match(bersih_kata(awal_nxt)):
+                continue  # masih butuh konteks → geser lagi
+            return round(nxt.mulai, 2), b, f"start digeser ke kalimat berikutnya ('{nxt.teks[:26]}')"
+        if i > 0:
+            prev = kal_utuh[i - 1]
+            if a - prev.mulai <= 3.0 and (b - prev.mulai) >= 10:
+                return round(prev.mulai, 2), b, "start digeser mundur ke kalimat sebelumnya"
+    except (IndexError, TypeError, ValueError):
+        return a, b, ""
+    return a, b, ""
+
 # ── 4a-2. Mode momen GAMER ──────────────────────────────────────────────────
 # Bedanya dari mode umum: bukan cuma rata-rata energi suara, tapi PUNCAK energi
 # (teriakan/kaget), ditambah reaksi wajah dari file facecam, aksi gameplay, dan
@@ -433,7 +472,9 @@ def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
                                   f"{len(hooks)} kata pemikat" if hooks else "", "bicara padat" if padat >= 2.6 else "",
                                   "sering diputar ulang" if hm > 0.5 else "", "sesuai arahan" if kata_arahan & set(semua_kata) else "") if x]
             judul = (k.teks[:70] or f"Klip {a:.0f}s").strip()
-            kandidat.append(Klip(round(a, 2), round(b, 2), judul, skor, " · ".join(alasan) or "kalimat utuh"))
+            # STANDS ALONE: pembuka konteks-dependent → geser start
+            a2, b2, _ket = perbaiki_pembuka(kal, i, j, a, b)
+            kandidat.append(Klip(round(a2, 2), round(b2, 2), judul, skor, " · ".join(alasan) or "kalimat utuh"))
     if not kandidat and kal:
         b = min(kal[-1].selesai, kal[0].mulai + durasi)
         kandidat = [Klip(round(kal[0].mulai, 2), round(b, 2), (kal[0].teks[:70] or "Klip").strip(), 50, "kalimat utuh")]
@@ -806,6 +847,7 @@ Rules:
 - Score EVERY window: exactly one entry per input window.
 - `score` must be an integer 0-100.
 - THE 2-SECOND TEST is the main criterion: would the first 2 seconds force a cold viewer (no context) to keep watching? Windows that only work with prior context score low.
+- STANDS ALONE: the clip must make sense to someone who has seen nothing else. If a window OPENS on a pronoun ("ini", "itu", "gitu"), a filler ("ya", "nah", "oke"), or an answer to a question asked earlier ("kenapa?", "nggak?"), score it lower than a window that opens on the payoff itself — a window whose strong moment starts a few seconds in is still a good window.
 - Prefer windows with strong hooks, conflict, surprise, outrage, emotion, novelty, or a clear payoff.
 - Gaming signal: screaming/excitement, reactions, clutch plays, banter with friends. A window of pure gameplay with NO voice reaction is weaker than a window where the player reacts.
 - These windows carry extra signals measured from audio/facecam/gameplay: REACTION (facecam motion 0-1), ENERGY (audio peak 0-1), SURGE (sudden loudness jump 0-1). Use them as evidence, but the transcript still decides.
@@ -830,8 +872,9 @@ Return only:
 
 
 def ai_pilih_klip(kandidat: list[dict], skor: dict, kal: list[Kalimat], jumlah: int) -> list[Klip]:
-    """Ubah window + skor AI jadi daftar Klip (tanpa tumpang tindih, batas snap ke kata)."""
+    """Ubah window + skor AI jadi daftar Klip (tanpa tumpang tindih, batas snap ke kata, pembuka diverifikasi)."""
     semua_kata = [w for k in kal for w in k.kata]
+    utuh = kalimat_utuh(kal)
     urut = sorted(kandidat, key=lambda k: skor.get(k["id"], {}).get("score", 0), reverse=True)
     terpilih: list[Klip] = []
     for k in urut:
@@ -839,9 +882,16 @@ def ai_pilih_klip(kandidat: list[dict], skor: dict, kal: list[Kalimat], jumlah: 
         if not s:
             continue
         a, b = snap_ke_kata(k["mulai"], k["selesai"], semua_kata)
+        # STANDS ALONE: pembuka yang butuh konteks digeser ke kalimat yang berdiri sendiri
+        ket = ""
+        idx = [i for i, x in enumerate(utuh) if x.selesai > a and x.mulai < b]
+        if idx:
+            a2, b2, ket = perbaiki_pembuka(utuh, idx[0], idx[-1], a, b)
+            if ket:
+                a, b = a2, b2
         if all(b <= t.mulai or a >= t.selesai for t in terpilih):
             judul = (k["teks"][:70] or f"Klip {a:.0f}s").strip()
-            alasan = " · ".join(x for x in [s.get("reason", "").strip(), "AI 2-second test"] if x)
+            alasan = " · ".join(x for x in [s.get("reason", "").strip(), "AI 2-second test", ket] if x)
             terpilih.append(Klip(a, b, judul, float(s.get("score", 0)), alasan or "picked by AI"))
         if len(terpilih) >= jumlah:
             break
