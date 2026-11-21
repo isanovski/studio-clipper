@@ -7,45 +7,24 @@ Kredit + lisensi di bagian paling bawah.
 
 ---
 
-## 1. Install (satu kali saja)
+## 1. Install (satu kali)
 
-Pilih salah satu cara termudah:
-
-### A. Via ZIP (termudah, tidak perlu git)
+Cara paling singkat — copy-paste semua sekaligus di Termux:
 
 ```bash
-# Android / Termux:
-pkg install python git ffmpeg unzip wget
+pkg install python git ffmpeg unzip wget -y && pip install uv && cd ~ && wget -q https://github.com/isanovskisaputra-source/studio-clipper/archive/refs/heads/main.zip && unzip -q main.zip && cd studio-clipper-main/klip && uv sync
+```
+
+Tunggu sampai selesai (bisa 2-5 menit). Tanpa git clone, tanpa password.
+
+Di Linux / VPS:
+
+```bash
+sudo apt install python3 git ffmpeg unzip wget -y
+pip install uv
 wget https://github.com/isanovskisaputra-source/studio-clipper/archive/refs/heads/main.zip
 unzip main.zip
 cd studio-clipper-main/klip
-
-# Linux / VPS:
-sudo apt install python3 git ffmpeg unzip wget
-wget https://github.com/isanovskisaputra-source/studio-clipper/archive/refs/heads/main.zip
-unzip main.zip
-cd studio-clipper-main/klip
-```
-
-Lalu instal `uv`:
-```bash
-pip install uv
-uv sync
-```
-
-### B. Via git clone (butuh Personal Access Token)
-
-GitHub tidak menerima password login untuk `git clone` sejak 2021. Jika meminta password, gunakan **Personal Access Token (PAT)**, bukan password akun GitHub kamu.
-
-Cara buat PAT:
-1. Buka github.com → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens**
-2. Buat token baru, beri akses `repo` (read)
-3. Salin token, tempel saat git meminta password
-
-```bash
-git clone https://github.com/isanovskisaputra-source/studio-clipper.git
-cd studio-clipper/klip
-pip install uv
 uv sync
 ```
 
