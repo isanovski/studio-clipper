@@ -416,7 +416,8 @@ def normalisasi(x: np.ndarray) -> np.ndarray:
 
 def skor_momen_gamer(kal: list[Kalimat], energi: np.ndarray, lonjak: np.ndarray,
                      reaksi: np.ndarray, aksi: np.ndarray,
-                     durasi: float, arahan: str = "", durasi_bebas: bool = False) -> list[dict]:
+                     durasi: float, arahan: str = "", durasi_bebas: bool = False,
+                topik_trending: list[str] | None = None) -> list[dict]:
     """Skor tiap rentang kalimat untuk mode gamer.
 
     Tiga lapis penilaian:
@@ -499,6 +500,12 @@ def skor_momen_gamer(kal: list[Kalimat], energi: np.ndarray, lonjak: np.ndarray,
                     + (0.0 if durasi_bebas else -abs(pj - durasi) / durasi * 10))
             if kata_arahan and kata_arahan & set(semua_kata):
                 skor += 20
+            # Bonus topik trending (riset internet)
+            if topik_trending:
+                for t in topik_trending:
+                    if t.lower() in low:
+                        skor += 15
+                        break
 
             alasan = []
             if kategori["event"]:
@@ -592,6 +599,26 @@ def ekstrak_topik(kal: list[Kalimat], arahan: str = "") -> list[str]:
     return topik[:10]
 
 
+def ambil_trending_topik() -> list[str]:
+    """Ambil topik lagi viral di Indonesia dari Google Trends (trending searches now).
+
+    Digunakan sebagai konsep tambahan buat AI supaya pemilihan momen
+    tidak cuma lihat transkrip, tapi juga tahu apa yang lagi viral di internet.
+    Return list topik (maks 10). Kalau gagal, return [].
+    """
+    if not _HAS_PYTRENDS:
+        return []
+    try:
+        pytrends = TrendReq(hl='id-ID', tz=420, timeout=20)
+        trending = pytrends.trending_searches(pn='indonesia')
+        if trending is None or len(trending) == 0:
+            return []
+        topik = [str(row[0]) for row in trending.values[:10]]
+        return topik
+    except Exception:
+        return []
+
+
 KATA_STOP = {
     "yang", "dan", "atau", "dari", "dengan", "untuk", "pada", "di", "ke", "di",
     "ini", "itu", "saya", "kamu", "dia", "mereka", "ada", "tidak", "bisa",
@@ -646,7 +673,8 @@ def ai_pilih_momen_utama(kal: list[Kalimat], durasi: float, jumlah: int,
                          arahan: str = "", penyedia: str = "",
                          cache: Path | None = None, mode: str = "umum",
                          sinyal: dict | None = None,
-                         durasi_bebas: bool = False) -> list[Klip] | None:
+                         durasi_bebas: bool = False,
+                         topik_trending: list[str] | None = None) -> list[Klip] | None:
     """AI utama pilih momen terbaik dari semua teks Whisper.
 
     Kirim semua kalimat dengan timestamp ke AI. AI memilih jumlah momen
@@ -670,6 +698,15 @@ def ai_pilih_momen_utama(kal: list[Kalimat], durasi: float, jumlah: int,
     teks_gabungan = "\n".join(segment[:1200])
 
     arahan_str = f"\nArahan pengguna: {arahan}" if arahan else ""
+
+    # Topik lagi viral di Indonesia (riset internet via Google Trends)
+    trending_str = ""
+    if topik_trending:
+        trending_str = (
+            f"\nTOPIK LAGI VIRAL DI INDONESIA (Google Trends, 7 hari terakhir):\n"
+            + "\n".join(f"  - {t}" for t in topik_trending[:10])
+            + "\nPrioritaskan momen yang berkaitan dengan topik-trending ini."
+        )
 
     if durasi_bebas:
         batas_durasi = (
@@ -709,7 +746,7 @@ Kriteria wajib:
 4. 2-DETIK TEST: 2 detik pertama harus membuat penonton baru ingin terus nonton.
 5. STANDS ALONE: hindari awalan "ini", "itu", "ya", "nah".
 6. Tidak tumpang tindih waktu.
-7. Bawa judul singkat dan alasan singkat ({instruksi_bahasa()}).{arahan_str}
+7. Bawa judul singkat dan alasan singkat ({instruksi_bahasa()}).{arahan_str}{trending_str}
 
 Output HANYA JSON valid, tanpa prose, tanpa markdown fence:
 [
@@ -757,7 +794,7 @@ Kriteria wajib:
 3. Tidak tumpang tindih waktu satu sama lain.
 4. Prioritaskan momen yang memiliki sinyal fisik kuat (lonjakan suara, reaksi wajah, atau aksi layar), meski teksnya sepi.
 5. SKOR RENDAH untuk transkrip yang berisi narasi/meta tentang membuat video ("kita akan membuat video", "subscribe", "intro"), kecuali jika didukung sinyal fisik kuat.
-6. Bawa judul singkat dan alasan singkat (Bahasa Indonesia).{arahan_str}
+6. Bawa judul singkat dan alasan singkat (Bahasa Indonesia).{arahan_str}{trending_str}
 
 Output HANYA JSON valid, tanpa prose, tanpa markdown fence:
 [
@@ -799,7 +836,8 @@ Output HANYA JSON valid, tanpa prose, tanpa markdown fence:
 def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
                 durasi: float, jumlah: int, panjang_video: float, arahan: str = "",
                 mode: str = "umum", sinyal: dict | None = None,
-                durasi_bebas: bool = False) -> list[Klip]:
+                durasi_bebas: bool = False,
+                topik_trending: list[str] | None = None) -> list[Klip]:
     """Momen = rangkaian kalimat utuh, diberi skor, judul, dan alasan (sama dengan aplikasi Klip HP).
 
     mode "gamer" → pakai preset momen gamer: teriakan (lonjakan energi), reaksi facecam,
@@ -815,7 +853,8 @@ def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
                                  (sinyal or {}).get("lonjak", np.zeros(1)),
                                  (sinyal or {}).get("reaksi", np.zeros(1)),
                                  (sinyal or {}).get("aksi", np.zeros(1)),
-                                 durasi, arahan, durasi_bebas=durasi_bebas)
+                                 durasi, arahan, durasi_bebas=durasi_bebas,
+                                 topik_trending=topik_trending)
         if not semua:
             return []
         semua.sort(key=lambda c: c["skor"], reverse=True)
@@ -868,6 +907,13 @@ def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
                     + (0.0 if durasi_bebas else -abs(pj - durasi) / durasi * 10) + e * 10 + hm * 30)
             if kata_arahan and kata_arahan & set(semua_kata):
                 skor += 20
+            # Bonus topik trending (riset internet, Google Trends)
+            if topik_trending:
+                low = teks.lower()
+                for t in topik_trending:
+                    if t.lower() in low:
+                        skor += 15
+                        break
             # Bonus Google Trends: kalau klip mengandung topik yang lagi viral
             bonus_trends = max((trends.get(w, 0) for w in semua_kata if w in trends), default=0)
             if bonus_trends > 40:
@@ -2904,6 +2950,10 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
         return
 
     ringkasan, hashtag = "", []
+    # Riset internet: topik lagi viral di Indonesia (Google Trends)
+    topik_trending = ambil_trending_topik()
+    if topik_trending:
+        log(f"Topik trending Indonesia: {', '.join(topik_trending[:5])}")
     penyedia = (a.ai or baca_env().get("AI", "lokal")).lower()
     if a.pilihan:
         data = json.loads(Path(a.pilihan).read_text(encoding="utf-8"))
@@ -2943,6 +2993,7 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
                 mode=mode_momen,
                 sinyal=sinyal,
                 durasi_bebas=getattr(a, "durasi_bebas", False),
+                topik_trending=topik_trending,
             )
             if klips:
                 sumber_ai = f"{penyedia}"
@@ -2953,21 +3004,25 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
                 log("   AI utama gagal → pakai heuristik lokal.")
                 klips = (pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
                                      mode="gamer", sinyal=sinyal,
-                                     durasi_bebas=getattr(a, "durasi_bebas", False))
+                                     durasi_bebas=getattr(a, "durasi_bebas", False),
+                                     topik_trending=topik_trending)
                          if mode_momen == "gamer"
                          else pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
-                                          durasi_bebas=getattr(a, "durasi_bebas", False)))
+                                          durasi_bebas=getattr(a, "durasi_bebas", False),
+                                          topik_trending=topik_trending))
                 sumber_ai = "lokal"
         elif mode_momen == "gamer":
             log("Mode momen GAMER: cari teriakan, reaksi wajah, aksi game, dan kata gaming…")
             klips = pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
                                 mode="gamer", sinyal=sinyal,
-                                durasi_bebas=getattr(a, "durasi_bebas", False))
+                                durasi_bebas=getattr(a, "durasi_bebas", False),
+                                topik_trending=topik_trending)
             sumber_ai = "lokal"
         else:
             log("Mencari momen terbaik (heatmap + energi suara + kepadatan kata + kata hook)…")
             klips = pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
-                                durasi_bebas=getattr(a, "durasi_bebas", False))
+                                durasi_bebas=getattr(a, "durasi_bebas", False),
+                                topik_trending=topik_trending)
             sumber_ai = "lokal"
         hooks = [None] * len(klips)
 
