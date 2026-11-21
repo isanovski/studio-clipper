@@ -14,7 +14,14 @@ Kredit + lisensi di bagian paling bawah.
 Copy-paste semua sekaligus:
 
 ```bash
+pkg update -y
 pkg install python git ffmpeg unzip wget curl -y
+termux-change-repo
+```
+
+Pilih mirror (pilih nomor 1 atau yang paling cepat), lalu:
+
+```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 cd ~
@@ -26,7 +33,9 @@ uv sync
 
 Tunggu sampai selesai (bisa 2–5 menit). Tanpa git clone, tanpa password, tanpa `pip install uv`.
 
-> **Kenapa tidak pakai `pip install uv`?** Karena `uv` ditulis dalam Rust, dan `pip` mencoba kompilasi di Termux yang butuh Rust compiler. Pakai installer resmi di atas langsung tidak butuh kompilasi.
+> **Kenapa tidak pakai `pip install uv`?** Karena `uv` ditulis dalam Rust, dan `pip` mencoba kompilasi di Termux yang butuh Rust compiler + mirror yang benar. Pakai installer resmi di atas langsung tidak butuh kompilasi.
+
+**Kalau `termux-change-repo` belum ada atau error:** abaikan, langsung lanjut ke `curl ... | sh`.
 
 **Kalau sudah unduh salah (folder kosong / tidak ada klip.py):**
 
