@@ -2723,14 +2723,15 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         graf.append(f"[{v}][pb]overlay=x='-W+W*t/{durasi:.2f}':y=H-10:eof_action=pass[vp]")
         v = "vp"
     if g.get("layout") == "gamer":
-        # Layout gamer (revisi user): TANPA subtitle. Banner judul hanya 5 detik
-        # pertama, posisinya TEPAT di tengah frame.
+        # Layout gamer: TANPA subtitle, TANPA banner teks otomatis.
+        # Hanya facecam + gameplay + branding (PNG di bawah).
         import random as _r
         if not g.get("preset"):
             g["preset"] = _r.choice(list(PRESET.keys()))
         g["subtitle"] = False
-        g["banner"] = True
-        g["banner_durasi"] = float(g.get("banner_durasi", 0) or 0)
+        g["banner"] = False
+        g["banner_durasi"] = 0
+        g["banner_tengah"] = True
         g["banner_tengah"] = True
         # Gaya banner berbeda untuk setiap klip (kotak + font + warna acak)
         g["_gaya_banner_obj"] = pilih_gaya_banner(klip)
