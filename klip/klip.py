@@ -604,19 +604,37 @@ def ambil_trending_topik() -> list[str]:
 
     Digunakan sebagai konsep tambahan buat AI supaya pemilihan momen
     tidak cuma lihat transkrip, tapi juga tahu apa yang lagi viral di internet.
-    Return list topik (maks 10). Kalau gagal, return [].
+    Return list topik (maks 10). Kalau semua sumber gagal, return []
+    (AI tetap jalan dari transkrip Whisper + sinyal fisik).
     """
-    if not _HAS_PYTRENDS:
-        return []
+    # Sumber 1: Google Trends trending searches
+    if _HAS_PYTRENDS:
+        try:
+            pytrends = TrendReq(hl='id-ID', tz=420, timeout=20)
+            trending = pytrends.trending_searches(pn='indonesia')
+            if trending is not None and len(trending) > 0:
+                topik = [str(row[0]) for row in trending.values[:10]]
+                if topik:
+                    return topik
+        except Exception:
+            pass
+    # Sumber 2: DuckDuckGo HTML search (fallback kalau Google Trends diblokir)
     try:
-        pytrends = TrendReq(hl='id-ID', tz=420, timeout=20)
-        trending = pytrends.trending_searches(pn='indonesia')
-        if trending is None or len(trending) == 0:
-            return []
-        topik = [str(row[0]) for row in trending.values[:10]]
-        return topik
+        import requests
+        from bs4 import BeautifulSoup
+        r = requests.get(
+            'https://duckduckgo.com/html/?q=topik+viral+Indonesia+hari+ini',
+            timeout=12,
+            headers={'User-Agent': 'Mozilla/5.0'},
+        )
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            results = soup.select('.result__a')[:10]
+            if results:
+                return [res.get_text(strip=True) for res in results]
     except Exception:
-        return []
+        pass
+    return []
 
 
 KATA_STOP = {
