@@ -2984,8 +2984,8 @@ def main() -> None:
     p.add_argument("--broll", choices=["pixabay", "file"], help="sisipkan B-roll: pixabay (butuh PIXABAY_API_KEY) atau file sendiri")
     p.add_argument("--broll-file", nargs="*", default=[], help="video/foto milikmu untuk B-roll (dengan --broll file)")
     p.add_argument("--watermark", help="teks di tengah klip, putih transparan ±50%%, mis. @akunmu")
-    p.add_argument("--layout", default=None, choices=["tunggal", "gamer"],
-                   help="tampilan klip: tunggal (satu layar) atau gamer (wajah atas + gameplay bawah + branding)")
+    p.add_argument("--layout", default=None, choices=["tunggal", "split", "gamer"],
+                   help="tampilan klip: tunggal (satu layar), split (dua pembicara atas-bawah), atau gamer (wajah atas + gameplay bawah + branding)")
     p.add_argument("--face-mode", default="auto", choices=["auto", "manual", "fit"], help="bingkai 9:16: auto (ikuti wajah bicara), manual (tentukan --face-x), fit (layar penuh)")
     p.add_argument("--face-x", type=float, default=0.5, help="posisi wajah 0.0 (kiri) … 1.0 (kanan) untuk --face-mode manual")
     p.add_argument("--gaya", help="JSON gaya render (rasio, latar, fokus, layout, banner, subtitle, musik, …)")
