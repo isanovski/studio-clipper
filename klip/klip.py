@@ -1203,17 +1203,46 @@ def ai_json(penyedia: str, prompt: str, cache: Path | None = None) -> dict | Non
         log(f"   AI gagal: {type(e).__name__}: {str(e)[:140]}")
         _ai_catat(False, f"Panggilan AI gagal ({type(e).__name__}): {str(e)[:180]}")
         return None
-    m = re.search(r"\[.*\]|\{.*\}", teks, re.S)
-    if not m:
+    # Bersihkan markdown code fences dan teks di sekitar JSON
+    bersih_teks = teks.strip()
+    # Hapus ```json ... ``` atau ``` ... ```
+    if "```" in bersih_teks:
+        parts = bersih_teks.split("```")
+        for i, p in enumerate(parts):
+            if p.strip().startswith("json"):
+                p = p[4:].strip()
+            p = p.strip()
+            if p.startswith("[") or p.startswith("{"):
+                bersih_teks = p
+                break
+    # Cari JSON array atau objek terluar yang valid
+    hasil = None
+    for start_char, end_char in (("[", "]"), ("{", "}")):
+        idx = bersih_teks.find(start_char)
+        if idx < 0:
+            continue
+        depth = 0
+        end_idx = -1
+        for j in range(idx, len(bersih_teks)):
+            if bersih_teks[j] == start_char:
+                depth += 1
+            elif bersih_teks[j] == end_char:
+                depth -= 1
+                if depth == 0:
+                    end_idx = j
+                    break
+        if end_idx > idx:
+            candidate = bersih_teks[idx:end_idx + 1]
+            try:
+                hasil = json.loads(candidate)
+                break
+            except json.JSONDecodeError:
+                continue
+    if hasil is None:
         log("   AI tidak mengembalikan JSON → pakai fallback lokal.")
         _ai_catat(False, "AI menjawab tetapi bukan JSON, jadi momen dipilih heuristik lokal.")
         return None
-    try:
-        hasil = json.loads(m.group(0))
-    except json.JSONDecodeError:
-        log("   JSON AI tidak valid → pakai fallback lokal.")
-        _ai_catat(False, "JSON dari AI tidak valid, jadi momen dipilih heuristik lokal.")
-        return None
+    _ai_catat(True, "AI membaca transkrip Whisper dan memilih momen (jawaban JSON valid).")
     _ai_catat(True, "AI membaca transkrip Whisper dan memilih momen (jawaban JSON valid).")
     if cache:
         try:
