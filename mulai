@@ -492,8 +492,8 @@ def alur_klip(kering: bool = False) -> None:
     durasi_bebas = durasi_raw.strip().lower() == "bebas"
     durasi = 0 if durasi_bebas else int(durasi_raw)
     print()
-    lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "gamer (wajah atas + gameplay bawah)"], 0)
-    layout = ["tunggal", "gamer"][lay_ke]
+    lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "split (dua pembicara atas-bawah)", "gamer (wajah atas + gameplay bawah)", "lebar (landscape utuh, black bars atas-bawah)"], 0)
+    layout = ["tunggal", "split", "gamer", "lebar"][lay_ke]
     facecam = ""
     momen = ""
     face_mode = "auto"
@@ -657,8 +657,8 @@ def alur_klip(kering: bool = False) -> None:
     durasi_bebas = durasi_raw.strip().lower() == "bebas"
     durasi = 0 if durasi_bebas else int(durasi_raw)
     print()
-    lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "gamer (wajah atas + gameplay bawah)"], 0)
-    layout = ["tunggal", "gamer"][lay_ke]
+    lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "split (dua pembicara atas-bawah)", "gamer (wajah atas + gameplay bawah)", "lebar (landscape utuh, black bars atas-bawah)"], 0)
+    layout = ["tunggal", "split", "gamer", "lebar"][lay_ke]
     facecam = ""
     momen = ""
     face_mode = "auto"

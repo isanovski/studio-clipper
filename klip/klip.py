@@ -1565,7 +1565,7 @@ def qc_klip(path: Path, target_durasi: float, layout: str = "") -> dict:
         return hasil
     w, h = vids[0].get("width", 0), vids[0].get("height", 0)
     hasil["resolusi"] = f"{w}x{h}"
-    if (w, h) != (1080, 1920):
+    if layout != "lebar" and (w, h) != (1080, 1920):
         hasil["catatan"].append(f"resolusi {w}x{h} (harus 1080x1920)")
     if not auds:
         hasil["catatan"].append("tidak ada audio")
@@ -2593,6 +2593,17 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
             graf.append(f"[{'va' if lbl == 'atas' else 'vb'}]{potong(w, h, 1080 / 958, p['x'], p['y'], zoom)},"
                         f"scale=1080:958:flags=lanczos,setsar=1[{lbl}]")
         graf.append("color=c=0x111111:s=1080x4:d=1[gp];[atas][gp][bawah]vstack=inputs=3[vid]")
+    elif layout == "lebar":
+        # Landscape utuh tanpa crop — video di tengah kanvas 1080x1920,
+        # black bars atas-bawah (pillarbox). Cocok untuk klip gaming/YouTube
+        # yang ingin jaga 16:9 asli, hanya dipotong momennya saja.
+        src_ratio = w / h if h else 16 / 9
+        land_w = 1080
+        land_h = max(2, int(1080 / src_ratio) // 2 * 2)
+        land_y = (1920 - land_h) // 2
+        graf.append(f"[0:v]scale={land_w}:{land_h}:flags=lanczos,setsar=1[v_land]")
+        graf.append(f"[bg][v_land]overlay=x=0:y={land_y}[vid]")
+        print(f"• Layout lebar: {w}x{h} → {land_w}x{land_h} di y={land_y} (black bars atas-bawah)")
     elif layout == "gamer":
         # Kanvas 1080x1920 (UKURAN TERKUNCI 20 Nov 2026):
         #   facecam  1080x608  (LEBAR PENUH — nol bolong kiri-kanan)
@@ -3211,8 +3222,8 @@ def main() -> None:
     p.add_argument("--broll", choices=["pixabay", "file"], help="sisipkan B-roll: pixabay (butuh PIXABAY_API_KEY) atau file sendiri")
     p.add_argument("--broll-file", nargs="*", default=[], help="video/foto milikmu untuk B-roll (dengan --broll file)")
     p.add_argument("--watermark", help="teks di tengah klip, putih transparan ±50%%, mis. @akunmu")
-    p.add_argument("--layout", default=None, choices=["tunggal", "split", "gamer"],
-                   help="tampilan klip: tunggal (satu layar), split (dua pembicara atas-bawah), atau gamer (wajah atas + gameplay bawah + branding)")
+    p.add_argument("--layout", default=None, choices=["tunggal", "split", "gamer", "lebar"],
+                   help="tampilan klip: tunggal (satu layar), split (dua pembicara atas-bawah), gamer (wajah atas + gameplay bawah + branding), atau lebar (landscape utuh tanpa crop, black bars atas-bawah)")
     p.add_argument("--face-mode", default="auto", choices=["auto", "manual", "fit"], help="bingkai 9:16: auto (ikuti wajah bicara), manual (tentukan --face-x), fit (layar penuh)")
     p.add_argument("--face-x", type=float, default=0.5, help="posisi wajah 0.0 (kiri) … 1.0 (kanan) untuk --face-mode manual")
     p.add_argument("--gaya", help="JSON gaya render (rasio, latar, fokus, layout, banner, subtitle, musik, …)")

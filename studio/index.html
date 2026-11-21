@@ -627,6 +627,7 @@ button{cursor:crosshair;}
         <button data-v="tunggal" class="aktif">Tunggal (satu layar)</button>
         <button data-v="split">Split Podcast (dua pembicara atas-bawah)</button>
         <button data-v="gamer">Gamer (wajah atas + gameplay bawah)</button>
+        <button data-v="lebar">Lebar (landscape utuh, black bars atas-bawah)</button>
       </div>
     </div>
     <div class="catatan" style="margin-top:6px;font-size:14px;color:#9aa3ad">Split butuh dua wajah terdeteksi di klip. Kalau hanya satu orang, otomatis jadi tunggal.</div>
@@ -946,8 +947,8 @@ $('#gFaceX').oninput=(e)=>{
 $('#pilLayout').onclick=(e)=>{
   const b=e.target.closest('button');if(!b)return;
   $$('#pilLayout button').forEach(x=>x.classList.toggle('aktif',x===b));
-  $('#bFacecamFile').style.display=b.dataset.v==='gamer'?'':'none';
-  $('#bSisiFacecam').style.display=b.dataset.v==='gamer'?'':'none';
+  $('#bFacecamFile').style.display=['gamer','lebar'].includes(b.dataset.v)?'':'none';
+  $('#bSisiFacecam').style.display='gamer'===b.dataset.v?'':'none';
   if(b.dataset.v==='gamer'){
     // Konten gamer = highlight 15-35 detik, bukan cuplikan 60 detik.
     const d30=$('#pilDurasi button[data-v="30"]');
