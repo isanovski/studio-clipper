@@ -1427,7 +1427,7 @@ Return only:
 def ai_pilih_layout(transkrip_ringkas: str, sinyal: dict, penyedia: str, cache: Path | None = None) -> str:
     """Saran layout dari isi + sinyal (bukan facecam 2-kamera; itu khusus gaming)."""
     hasil = ai_json(penyedia, f"""Pilih satu layout untukklip video ini.
-Pilihan: "tunggal" (satu pembicara, crop 9:16 mengikuti wajah) · "gamer" (wajah atas + gameplay bawah + branding).
+Pilihan: "tunggal" (satu pembicara, crop 9:16 mengikuti wajah) · "gamer" (wajah atas + gameplay bawah, tanpa branding).
 Return only valid JSON, no prose: {{"layout":"tunggal","reason":"<short>"}}
 
 RINGKASAN TRANSKRIP:
@@ -2492,9 +2492,9 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
     elif layout == "gamer":
         # Kanvas 1080x1920 (UKURAN TERKUNCI 20 Nov 2026):
         #   facecam  1080x608  (LEBAR PENUH — nol bolong kiri-kanan)
-        #   gameplay 1080x992  (di bawah facecam)
-        #   branding 1080x320  (bar paling bawah: logo + nama channel)
-        brand_h = int(g.get("brand_h", 320))     # tinggi bar branding (0 = mati)
+        #   gameplay 1080x1292 (di bawah facecam, fillsisa sisa kanvas)
+        #   branding: DIMATIKAN (tanpa bar paling bawah)
+        brand_h = 0     # branding dimatikan sepenuhnya untuk layout gamer
         zoom = float(g.get("game_zoom", 1.0))    # >1 = perbesar gameplay (potong makin banyak kiri-kanan)
         fc_w = 1080                              # lebar facecam = lebar kanvas (penuh)
         # Tinggi slot facecam MENGIKUTI rasio PiP sumber (default) supaya tidak ada
@@ -2515,14 +2515,14 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
                 _, fw, fh = info_video(Path(g["facecam"]))
                 if fw and fh:
                     fc_h = max(200, min(1100, int(round(fc_w * fh / fw)) // 2 * 2))
-            game_h = max(200, 1920 - fc_h - brand_h)
+            game_h = max(200, 1920 - fc_h)     # branding dimatikan → gameplay fillsisa sisa
             if ikut_sumber:
                 # Rasio slot == rasio sumber → skala saja, TIDAK ada yang terpotong
                 graf.append(f"[FACECAM:v]scale={fc_w}:{fc_h}:flags=lanczos,setsar=1[fc]")
             else:
                 graf.append(f"[FACECAM:v]scale={fc_w}:{fc_h}:force_original_aspect_ratio=increase,"
                             f"crop={fc_w}:{fc_h},setsar=1[fc]")
-            print(f"• Layout gamer: facecam {fc_w}x{fc_h} · gameplay {fc_w}x{game_h} · branding {fc_w}x{brand_h}")
+            print(f"• Layout gamer: facecam {fc_w}x{fc_h} · gameplay {fc_w}x{game_h} (tanpa branding)")
 
             # Gameplay: skala memperbesar (tinggi penuh tetap utuh), lalu potong kiri-kanan
             graf.append(f"[0:v]scale=-1:{int(game_h * zoom)}:flags=lanczos,"
@@ -2567,9 +2567,9 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
             # Tinggi slot mengikuti rasio kotak PiP → TIDAK ada gambar yang terpotong
             if ikut_sumber:
                 fc_h = max(200, min(1100, int(round(fc_w * ch_src / cw_src)) // 2 * 2))
-            game_h = max(200, 1920 - fc_h - brand_h)
+            game_h = max(200, 1920 - fc_h)     # branding dimatikan → gameplay fillsisa sisa
             print(f"• Layout gamer: facecam {fc_w}x{fc_h} (rasio {cw_src/ch_src:.3f}) · "
-                  f"gameplay {fc_w}x{game_h} · branding {fc_w}x{brand_h}")
+                  f"gameplay {fc_w}x{game_h} (tanpa branding)")
 
             # Facecam: crop kotak PiP → skala ke slot (rasio sama → utuh, tidak kepotong)
             graf.append(f"[va]crop={cw_src}:{ch_src}:{x_src}:{y_src},"
@@ -2594,21 +2594,10 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
                         f"crop={crop_w}:{crop_h}:{x_game}:0,"
                         f"scale={fc_w}:{game_h}:flags=lanczos,setsar=1[game_scaled]")
 
-        # Kanvas hitam → facecam (lebar penuh) → gameplay → bar branding
+        # Kanvas hitam → facecam (lebar penuh) → gameplay (tanpa branding)
         graf.append(f"color=c=black:s=1080x1920:d={durasi:.2f}[bg]")
         graf.append(f"[bg][fc]overlay=x=0:y=0[t1]")
-        graf.append(f"[t1][game_scaled]overlay=x=0:y={fc_h}[t2]")
-        if brand_h > 0:
-            aset_branding = cari_berkas_branding(g)
-            if aset_branding:
-                # Gambar branding milik user (idealnya 1080x320) dipakai UTUH —
-                # ruang kosong di kanannya dibiarkan, isi sendiri.
-                graf.append(f"[BRANDING:v]scale={fc_w}:{brand_h}:flags=lanczos,setsar=1[brg]")
-            else:
-                graf.append(f"color=c=0x121212:s={fc_w}x{brand_h}:d={durasi:.2f}[brg]")
-            graf.append(f"[t2][brg]overlay=x=0:y={1920 - brand_h}[vid]")
-        else:
-            graf.append(f"[t2]null[vid]")
+        graf.append(f"[t1][game_scaled]overlay=x=0:y={fc_h}[vid]")
 
     elif rasio == "9:16":
         if fokus == "auto":
