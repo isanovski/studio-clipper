@@ -2597,6 +2597,7 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         # Landscape utuh tanpa crop — video di tengah kanvas 1080x1920,
         # black bars atas-bawah (pillarbox). Cocok untuk klip gaming/YouTube
         # yang ingin jaga 16:9 asli, hanya dipotong momennya saja.
+        graf.append(f"color=c=black:s=1080x1920:d={durasi:.2f}[bg]")
         src_ratio = w / h if h else 16 / 9
         land_w = 1080
         land_h = max(2, int(1080 / src_ratio) // 2 * 2)
