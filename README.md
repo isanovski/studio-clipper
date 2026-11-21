@@ -12,7 +12,7 @@ Kredit + lisensi di bagian paling bawah.
 Cara paling singkat — copy-paste semua sekaligus di Termux:
 
 ```bash
-pkg install python git ffmpeg unzip wget -y && pip install uv && cd ~ && wget -q https://github.com/isanovskisaputra-source/studio-clipper/archive/refs/heads/main.zip && unzip -q main.zip && cd studio-clipper-main/klip && uv sync
+pkg install python git ffmpeg unzip wget -y && pip install uv && cd ~ && wget -q https://github.com/isanovski/studio-clipper/archive/refs/heads/main.zip && unzip -q main.zip && cd studio-clipper-main/klip && uv sync
 ```
 
 Tunggu sampai selesai (bisa 2-5 menit). Tanpa git clone, tanpa password.
@@ -22,7 +22,7 @@ Di Linux / VPS:
 ```bash
 sudo apt install python3 git ffmpeg unzip wget -y
 pip install uv
-wget https://github.com/isanovskisaputra-source/studio-clipper/archive/refs/heads/main.zip
+wget https://github.com/isanovski/studio-clipper/archive/refs/heads/main.zip
 unzip main.zip
 cd studio-clipper-main/klip
 uv sync
