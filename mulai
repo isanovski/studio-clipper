@@ -488,7 +488,9 @@ def alur_klip(kering: bool = False) -> None:
 
     print()
     jumlah = tanya("Jumlah klip", "3")
-    durasi = tanya("Durasi tiap klip (detik)", "30")
+    durasi_raw = tanya("Durasi tiap klip (detik) [30, atau 'bebas' untuk ikuti momen AI]", "30")
+    durasi_bebas = durasi_raw.strip().lower() == "bebas"
+    durasi = 0 if durasi_bebas else int(durasi_raw)
     print()
     lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "gamer (wajah atas + gameplay bawah)"], 0)
     layout = ["tunggal", "gamer"][lay_ke]
@@ -555,6 +557,8 @@ def alur_klip(kering: bool = False) -> None:
            "--face-mode", face_mode,
            "--face-x", str(face_x),
            "--potong", "120"]
+    if durasi_bebas:
+        cmd.append("--durasi-bebas")
     if arahan:
         cmd += ["--arahan", arahan]
     if wm and wm != "-":
@@ -649,7 +653,9 @@ def alur_klip(kering: bool = False) -> None:
 
     print()
     jumlah = tanya("Jumlah klip", "3")
-    durasi = tanya("Durasi tiap klip (detik)", "30")
+    durasi_raw = tanya("Durasi tiap klip (detik) [30, atau 'bebas' untuk ikuti momen AI]", "30")
+    durasi_bebas = durasi_raw.strip().lower() == "bebas"
+    durasi = 0 if durasi_bebas else int(durasi_raw)
     print()
     lay_ke = pilih("Tampilan klip", ["tunggal (layar penuh)", "gamer (wajah atas + gameplay bawah)"], 0)
     layout = ["tunggal", "gamer"][lay_ke]
@@ -716,6 +722,8 @@ def alur_klip(kering: bool = False) -> None:
            "--face-mode", face_mode,
            "--face-x", str(face_x),
            "--potong", "120"]
+    if durasi_bebas:
+        cmd.append("--durasi-bebas")
     if arahan:
         cmd += ["--arahan", arahan]
     if wm and wm != "-":

@@ -673,11 +673,15 @@ def mulai_klip(d: dict) -> dict:
     if not sumber:
         raise ValueError("Isi link YouTube atau pilih file video dulu.")
     folder = proyek_baru("klip")
+    durasi = int(d.get("durasi", 30))
+    durasi_bebas = durasi == 0
     cmd = [*jalankan_skrip(KLIP / "klip.py"), sumber, "--keluar", str(folder),
-           "--jumlah", str(int(d.get("jumlah", 3))), "--durasi", str(int(d.get("durasi", 30))),
+           "--jumlah", str(int(d.get("jumlah", 3))), "--durasi", str(durasi),
            "--ai", penyedia_ai(d.get("ai")), "--model", d.get("model", "small"),
            "--warna", d.get("warna", "#FFB020"),
            "--layout", d.get("layout", "tunggal")]
+    if durasi_bebas:
+        cmd.append("--durasi-bebas")
     if d.get("face_mode"):
         cmd += ["--face-mode", d["face_mode"]]
     if d.get("face_x") is not None:

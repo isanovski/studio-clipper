@@ -221,6 +221,43 @@ def is_hook(w: str) -> bool:
 KONTEKS_PEMBUKA = re.compile(r"^(ini|itu|oi|eh|ya|nah|oke|duh|situ|disini|gitu|begini|kayaknya|emang|terus|lalu|abis|habis|ntar|soalnya|yaa|yaaa|iya|iyaa|betul|ih|nah|aduh|wah|hai|hallo|hello)\b", re.I)
 
 
+def snap_batas_kalimat(kal: list[Kalimat], mulai: float, selesai: float) -> tuple[float, float]:
+    """Geser batas klip ke batas kalimat terdekat supaya tidak ada kalimat kepotong.
+
+    Mulai -> awal kalimat yang memuat `mulai` (atau kalimat pertama sesudahnya).
+    Selesai -> akhir kalimat yang memuat `selesai` (atau kalimat terakhir sebelumnya).
+    """
+    if not kal:
+        return mulai, selesai
+    a = mulai
+    for k in kal:
+        if k.mulai <= mulai <= k.selesai:
+            a = k.mulai
+            break
+    else:
+        for k in kal:
+            if k.mulai > mulai:
+                a = k.mulai
+                break
+        else:
+            a = kal[-1].mulai
+    b = selesai
+    for k in kal:
+        if k.mulai <= selesai <= k.selesai:
+            b = k.selesai
+            break
+    else:
+        for k in reversed(kal):
+            if k.selesai < selesai:
+                b = k.selesai
+                break
+        else:
+            b = kal[0].selesai
+    if b <= a:
+        return mulai, selesai
+    return a, b
+
+
 def perbaiki_pembuka(kal_utuh: list[Kalimat], i: int, j: int, a: float, b: float) -> tuple[float, float, str]:
     """Kalau klip buka dengan kata konteks-dependent, geser start ke kalimat yang berdiri sendiri.
 
@@ -379,7 +416,7 @@ def normalisasi(x: np.ndarray) -> np.ndarray:
 
 def skor_momen_gamer(kal: list[Kalimat], energi: np.ndarray, lonjak: np.ndarray,
                      reaksi: np.ndarray, aksi: np.ndarray,
-                     durasi: float, arahan: str = "") -> list[dict]:
+                     durasi: float, arahan: str = "", durasi_bebas: bool = False) -> list[dict]:
     """Skor tiap rentang kalimat untuk mode gamer.
 
     Tiga lapis penilaian:
@@ -408,10 +445,18 @@ def skor_momen_gamer(kal: list[Kalimat], energi: np.ndarray, lonjak: np.ndarray,
         for j in range(i, len(kal)):
             a, b = k.mulai, kal[j].selesai
             pj = b - a
-            if pj > durasi * 1.2:
-                break
-            if pj < durasi * 0.6:
-                continue
+            if durasi_bebas:
+                # Panjang bebas: hanya batas bawah (terlalu pendek tak masuk akal)
+                # dan batas atas (jangan jadi cuplikan 10 menit).
+                if pj > 180.0:
+                    break
+                if pj < 12.0:
+                    continue
+            else:
+                if pj > durasi * 1.2:
+                    break
+                if pj < durasi * 0.6:
+                    continue
             isi = kal[i:j + 1]
             teks = " ".join(s.teks for s in isi)
             low = teks.lower()
@@ -451,7 +496,7 @@ def skor_momen_gamer(kal: list[Kalimat], energi: np.ndarray, lonjak: np.ndarray,
                     + r_aksi * 10          # gameplay sedang rame
                     + alignment
                     + (12 if pembuka else 0)
-                    - abs(pj - durasi) / durasi * 10)
+                    + (0.0 if durasi_bebas else -abs(pj - durasi) / durasi * 10))
             if kata_arahan and kata_arahan & set(semua_kata):
                 skor += 20
 
@@ -600,7 +645,8 @@ def ringkas_sinyal_untuk_ai(sinyal: dict | None, durasi_video: float,
 def ai_pilih_momen_utama(kal: list[Kalimat], durasi: float, jumlah: int,
                          arahan: str = "", penyedia: str = "",
                          cache: Path | None = None, mode: str = "umum",
-                         sinyal: dict | None = None) -> list[Klip] | None:
+                         sinyal: dict | None = None,
+                         durasi_bebas: bool = False) -> list[Klip] | None:
     """AI utama pilih momen terbaik dari semua teks Whisper.
 
     Kirim semua kalimat dengan timestamp ke AI. AI memilih jumlah momen
@@ -625,6 +671,17 @@ def ai_pilih_momen_utama(kal: list[Kalimat], durasi: float, jumlah: int,
 
     arahan_str = f"\nArahan pengguna: {arahan}" if arahan else ""
 
+    if durasi_bebas:
+        batas_durasi = (
+            f"Pilih {jumlah} momen terbaik untuk klip pendek. TIDAK ada target durasi tetap —\n"
+            "panjang tiap klip bebas mengikuti isi yang sedang dibahas (bisa 15 detik, bisa 90 detik).\n"
+            "Mulai di awal/topik yang dibahas, selesai di kalimat yang mengakhiri pembahasan itu.\n"
+            "Jangan memotong di tengah kalimat atau tengah gracefully; pilih batas yang natural.\n"
+            "Setiap klip boleh punya durasi yang BERBEDA-BEDA."
+        )
+    else:
+        batas_durasi = f"Pilih {jumlah} momen terbaik untuk klip pendek, masing-masing sekitar {durasi} detik."
+
     if mode == "gamer":
         sinyal_txt = ringkas_sinyal_untuk_ai(sinyal, kal[-1].selesai if kal else 0)
         prompt = f"""Anda adalah editor video GAMING untuk TikTok/Reels/Shorts.
@@ -639,7 +696,7 @@ SINYAL FISIK (dari audio & video, BUKAN teks — bukti gaming yang tidak terliha
 WAKTU DENGAN SINYAL TERKUAT:
 {sinyal_txt}
 
-Pilih {jumlah} momen terbaik untuk klip pendek, masing-masing sekitar {durasi} detik.
+{batas_durasi}
 
 Kriteria wajib:
 1. ADALAH MOMEN GAMING: ada kejadian gameplay (kill, clutch, ace, win, round, mati, menang)
@@ -684,7 +741,7 @@ Output HANYA JSON valid, tanpa prose, tanpa markdown fence:
 Berikut adalah transkrip lengkap video dengan timestamp (detik):
 {teks_gabungan}
 
-Pilih {jumlah} momen terbaik untuk dibuat klip pendek, masing-masing sekitar {durasi} detik.
+{batas_durasi}
 
 Kriteria wajib:
 1. 2-DETIK TEST: 2 detik pertama harus membuat penonton baru (tanpa konteks) ingin terus nonton.
@@ -731,18 +788,24 @@ Output HANYA JSON valid, tanpa prose, tanpa markdown fence:
 
 def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
                 durasi: float, jumlah: int, panjang_video: float, arahan: str = "",
-                mode: str = "umum", sinyal: dict | None = None) -> list[Klip]:
+                mode: str = "umum", sinyal: dict | None = None,
+                durasi_bebas: bool = False) -> list[Klip]:
     """Momen = rangkaian kalimat utuh, diberi skor, judul, dan alasan (sama dengan aplikasi Klip HP).
 
     mode "gamer" → pakai preset momen gamer: teriakan (lonjakan energi), reaksi facecam,
     aksi gameplay, dan kamus kata gaming. Sinyal ekstra dikirim lewat `sinyal`.
+
+    durasi_bebas=True → TIDAK ada target panjang. Panjang klip mengikuti isi yang
+    dibicarakan: dari pembuka hook sampai kalimat selesai, dibatasi hanya oleh
+    batas bawah (terlalu pendek tidak masuk akal) dan batas atas (jangan jadi
+    cuplikan 10 menit). Durasi tiap klip boleh berbeda-beda.
     """
     if mode == "gamer":
         semua = skor_momen_gamer(kalimat_utuh(kal), energi,
                                  (sinyal or {}).get("lonjak", np.zeros(1)),
                                  (sinyal or {}).get("reaksi", np.zeros(1)),
                                  (sinyal or {}).get("aksi", np.zeros(1)),
-                                 durasi, arahan)
+                                 durasi, arahan, durasi_bebas=durasi_bebas)
         if not semua:
             return []
         semua.sort(key=lambda c: c["skor"], reverse=True)
@@ -771,10 +834,16 @@ def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
         for j in range(i, len(kal)):
             a, b = k.mulai, kal[j].selesai
             pj = b - a
-            if pj > durasi * 1.2:
-                break
-            if pj < durasi * 0.6:
-                continue
+            if durasi_bebas:
+                if pj > 180.0:
+                    break
+                if pj < 12.0:
+                    continue
+            else:
+                if pj > durasi * 1.2:
+                    break
+                if pj < durasi * 0.6:
+                    continue
             isi = kal[i:j + 1]
             kata = [x for s in isi for x in s.kata]
             teks = " ".join(s.teks for s in isi)
@@ -786,7 +855,7 @@ def pilih_momen(kal: list[Kalimat], energi: np.ndarray, heatmap: list[dict],
             e = float(energi[int(a):max(int(b), int(a) + 1)].mean()) if len(energi) > 1 else 0
             hm = nilai_heatmap(heatmap, a, b)
             skor = (padat * 14 + len(hooks) * 7 + tanya * 5 + (14 if pembuka else 0)
-                    - abs(pj - durasi) / durasi * 10 + e * 10 + hm * 30)
+                    + (0.0 if durasi_bebas else -abs(pj - durasi) / durasi * 10) + e * 10 + hm * 30)
             if kata_arahan and kata_arahan & set(semua_kata):
                 skor += 20
             # Bonus Google Trends: kalau klip mengandung topik yang lagi viral
@@ -1456,33 +1525,56 @@ def info_wajah(file: Path, a: float, b: float, w: int, h: int) -> dict:
 
 
 def dua_wajah(file: Path, a: float, b: float, w: int, h: int) -> list[dict] | None:
-    """Dua orang (kiri & kanan) untuk layout Split Podcast: semua wajah dikumpulkan lalu dibelah di celah x terbesar.
-    None bila hanya satu orang terlihat (layout jatuh ke tunggal)."""
+    """Dua orang (kiri & kanan) untuk layout Split Podcast.
+
+    Konsensus per-frame: tiap frame dengan >=2 wajah menghasilkan satu pasangan
+    (kiri, kanan). Posisi akhir = median pasangan, jadi satu frame outlier tidak
+    menggeser bingkai.
+
+    Versi lama mengumpulkan SEMUA wajah dari semua frame lalu membelah di celah-x
+    terbesar dengan syarat celah >= 0.12. Pada podcast 2 orang yang posisinya
+    berdekatan (mis. 0.36 vs 0.68 -> celah 0.11) itu selalu gagal, sehingga
+    layout diam-diam jatuh ke tunggal padahal dua orangnya jelas terlihat.
+    Cara baru tidak memakai ambang celah: cukup dua wajah terlihat BERSAMAAN di
+    frame yang sama, lalu posisinya harus konsisten antar-frame.
+
+    None bila tidak ada dua orang yang konsisten -> layout jatuh ke tunggal.
+    """
     import cv2
     cap = cv2.VideoCapture(str(file))
-    semua: list[tuple[float, float, float]] = []
+    pasangan: list[tuple[tuple[float, float, float], tuple[float, float, float]]] = []
     t, langkah = a, max((b - a) / 16, 0.6)
     while t < b:
         cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000)
         ok, fr = cap.read()
         if not ok:
             break
-        semua.extend(wajah_di(fr, w, h))
+        f = sorted(wajah_di(fr, w, h), key=lambda r: r[0])
+        if len(f) >= 2:
+            kiri, kanan = f[0], f[-1]
+            if float(kanan[0]) - float(kiri[0]) >= 0.15:
+                pasangan.append((kiri, kanan))
         t += langkah
     cap.release()
-    if len(semua) < 4:
+    if len(pasangan) < 2:
         return None
-    xs = sorted(p[0] for p in semua)
-    celah, belah = max((xs[i + 1] - xs[i], (xs[i + 1] + xs[i]) / 2) for i in range(len(xs) - 1))
-    if celah < 0.12:
+
+    def robust(sisi: list[tuple[float, float, float]]) -> dict:
+        """Median + buang outlier jauh dari median (posisi orang tidak lompat-lompat)."""
+        xs = np.array([float(p[0]) for p in sisi])
+        mx = float(np.median(xs))
+        dekat = [p for p, x in zip(sisi, xs) if abs(float(x) - mx) <= 0.12]
+        if len(dekat) < 2:
+            dekat = sisi
+        return {"x": float(np.median([float(p[0]) for p in dekat])),
+                "y": float(np.median([float(p[1]) for p in dekat])),
+                "s": float(np.median([float(p[2]) for p in dekat]))}
+
+    k = robust([p[0] for p in pasangan])
+    n = robust([p[1] for p in pasangan])
+    if n["x"] - k["x"] < 0.18:
         return None
-    hasil = []
-    for sisi in ([p for p in semua if p[0] < belah], [p for p in semua if p[0] >= belah]):
-        if len(sisi) < 2:
-            return None
-        hasil.append({"x": float(np.median([p[0] for p in sisi])), "y": float(np.median([p[1] for p in sisi])),
-                      "s": float(np.median([p[2] for p in sisi]))})
-    return hasil
+    return [k, n]
 
 
 _JEJAK_SIAP: dict[tuple[float, float], list] = {}  # jejak tersimpan di klip.json (dipakai pratinjau Studio & render)
@@ -2810,6 +2902,7 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
                 cache=kerja / f"ai-momen-{mode_momen}.json",
                 mode=mode_momen,
                 sinyal=sinyal,
+                durasi_bebas=getattr(a, "durasi_bebas", False),
             )
             if klips:
                 sumber_ai = f"{penyedia}"
@@ -2819,17 +2912,22 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
                     _ai_catat(False, "AI tidak mengembalikan momen yang bisa dipakai, jadi dipilih heuristik lokal.")
                 log("   AI utama gagal → pakai heuristik lokal.")
                 klips = (pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
-                                     mode="gamer", sinyal=sinyal) if mode_momen == "gamer"
-                         else pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan))
+                                     mode="gamer", sinyal=sinyal,
+                                     durasi_bebas=getattr(a, "durasi_bebas", False))
+                         if mode_momen == "gamer"
+                         else pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
+                                          durasi_bebas=getattr(a, "durasi_bebas", False)))
                 sumber_ai = "lokal"
         elif mode_momen == "gamer":
             log("Mode momen GAMER: cari teriakan, reaksi wajah, aksi game, dan kata gaming…")
             klips = pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
-                                mode="gamer", sinyal=sinyal)
+                                mode="gamer", sinyal=sinyal,
+                                durasi_bebas=getattr(a, "durasi_bebas", False))
             sumber_ai = "lokal"
         else:
             log("Mencari momen terbaik (heatmap + energi suara + kepadatan kata + kata hook)…")
-            klips = pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan)
+            klips = pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
+                                durasi_bebas=getattr(a, "durasi_bebas", False))
             sumber_ai = "lokal"
         hooks = [None] * len(klips)
 
@@ -2921,7 +3019,10 @@ def render_terpilih(keluar: Path, kerja: Path, pilih: str | None, gaya: dict) ->
         if d.get("jejak"):
             _JEJAK_SIAP[(round(d["mulai"], 2), round(d["selesai"], 2))] = d["jejak"]
     for n, d in enumerate(target, 1):
-        k = Klip(d["mulai"], d["selesai"], d.get("judul_banner") or d["judul"], d.get("skor", 0),
+        # Snap batas klip ke batas kalimat utuh agar tidak terpotong di tengah
+        # kalimat (penting untuk durasi bebas / pilihan AI).
+        a, b = snap_batas_kalimat(kal, d["mulai"], d["selesai"])
+        k = Klip(a, b, d.get("judul_banner") or d["judul"], d.get("skor", 0),
                  kata_kunci=d.get("kata_kunci") or [])
         out = keluar / f"klip-{d['no']:02d}.mp4"
         log(f"Render {n}/{len(target)} {out.name}: {k.mulai:.1f}–{k.selesai:.1f}s  “{d['judul']}”")
@@ -2953,6 +3054,8 @@ def main() -> None:
     p.add_argument("sumber", nargs="?", help="file video atau link YouTube")
     p.add_argument("--jumlah", type=int, default=3, help="jumlah klip (default 3)")
     p.add_argument("--durasi", type=int, default=30, help="target detik per klip (default 30)")
+    p.add_argument("--durasi-bebas", action="store_true",
+                   help="durasi bebas mengikuti isi pembicaraan (AI menentukan panjang tiap klip, tidak terpotong)")
     p.add_argument("--model", default="small", help="model whisper: tiny/base/small/medium/large-v3")
     p.add_argument("--beam", type=int, default=5, help="beam size whisper: 1=greedy (cepat, RAM kecil), 5=akurasi (lambat, RAM besar)")
     p.add_argument("--potong", type=int, default=0, help="pecah audio jadi chunk N detik saat transkripsi (0=off). Wajib untuk model besar di RAM kecil")
