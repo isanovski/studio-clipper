@@ -14,10 +14,19 @@ Kredit + lisensi di bagian paling bawah.
 Copy-paste semua sekaligus:
 
 ```bash
-pkg install python git ffmpeg unzip wget -y && pip install uv && cd ~ && wget -q https://github.com/isanovski/studio-clipper/archive/refs/heads/main.zip && unzip -q main.zip && cd studio-clipper-main/klip && uv sync
+pkg install python git ffmpeg unzip wget curl -y
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+cd ~
+wget -q https://github.com/isanovski/studio-clipper/archive/refs/heads/main.zip
+unzip -q main.zip
+cd studio-clipper-main/klip
+uv sync
 ```
 
-Tunggu sampai selesai (bisa 2-5 menit). Tanpa git clone, tanpa password.
+Tunggu sampai selesai (bisa 2–5 menit). Tanpa git clone, tanpa password, tanpa `pip install uv`.
+
+> **Kenapa tidak pakai `pip install uv`?** Karena `uv` ditulis dalam Rust, dan `pip` mencoba kompilasi di Termux yang butuh Rust compiler. Pakai installer resmi di atas langsung tidak butuh kompilasi.
 
 **Kalau sudah unduh salah (folder kosong / tidak ada klip.py):**
 
@@ -36,7 +45,8 @@ URL yang benar: `github.com/isanovski/studio-clipper` (bukan `isanovskisaputra-s
 
 ```bash
 sudo apt install python3 git ffmpeg unzip wget -y
-pip install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
 wget https://github.com/isanovski/studio-clipper/archive/refs/heads/main.zip
 unzip main.zip
 cd studio-clipper-main/klip
