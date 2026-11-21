@@ -4,64 +4,545 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>isanovski Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b0c0f;color:#e8e8e8;line-height:1.5;}
-a{color:#f5a524;text-decoration:none;}
-.container{max-width:1100px;margin:0 auto;padding:16px;}
-header{display:flex;align-items:center;gap:12px;padding:16px;background:#111318;border-bottom:1px solid #22262e;position:sticky;top:0;z-index:10;}
-.logo{font-weight:700;font-size:18px;color:#f5a524;}
-nav{margin-left:auto;display:flex;gap:10px;}
-nav button{background:transparent;border:1px solid #333a44;color:#e8e8e8;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;}
-nav button.aktif{background:#f5a524;color:#0b0c0f;font-weight:600;border-color:#f5a524;}
-main{padding:24px 16px 48px;}
+/* ===== PIXEL ART RAINBOW THEME ===== */
+:root{
+  --px-black:#050505;
+  --px-bg:#000000;
+  --px-panel:#0a0a0a;
+  --px-border:#333333;
+  --px-accent:#ff00ff;
+  --px-accent2:#00ffff;
+  --px-accent3:#ffff00;
+  --px-accent4:#00ff00;
+  --px-accent5:#ff0000;
+  --px-text:#ffffff;
+  --px-shadow:4px 4px 0px #000;
+  --px-glow:0 0 10px #22d3ee;
+}
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+html{
+  scroll-behavior:smooth;
+}
+body{
+  font-family:'VT323',monospace;
+  background:#000;
+  color:#fff;
+  line-height:1.4;
+  font-size:16px;
+  /* scanline + pixel grid overlay */
+  background-image:
+    linear-gradient(rgba(18, 16, 16, 0.5) 50%, transparent 50%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.05), rgba(0, 0, 255, 0.05));
+  background-size:100% 4px, 4px 100%;
+  background-attachment:fixed;
+}
+a{color:#22d3ee;text-decoration:none;text-decoration:underline dotted;}
+a:hover{color:#f5a524;text-decoration:none;}
+.container{max-width:1100px;margin:0 auto;padding:20px;}
+header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px;
+  background:#0a0a0a;
+  border:3px solid #2a2f3a;
+  position:sticky;
+  top:0;
+  z-index:10;
+  box-shadow:4px 4px 0px #000;
+}
+.logo{
+  font-family:'Press Start 2P',monospace;
+  font-size:16px;
+  font-weight:700;
+  color:#f5a524;
+  text-shadow:2px 2px 0px #000;
+  filter: blur(0.5px);
+}
+nav{
+  margin-left:auto;
+  display:flex;
+  gap:6px;
+}
+nav button{
+  background:#0a0a0a;
+  border:3px solid #2a2f3a;
+  color:#e8e8e8;
+  padding:8px 16px;
+  border-radius:0;
+  cursor:pointer;
+  font-family:'VT323',monospace;
+  font-size:16px;
+  font-weight:700;
+  text-transform:uppercase;
+  box-shadow:3px 3px 0px #000;
+  transition:none;
+}
+nav button:hover{
+  border-color:#22d3ee;
+  color:#22d3ee;
+  box-shadow:2px 2px 0px #000;
+}
+nav button.aktif{
+  background:#f5a524;
+  color:#0b0c0f;
+  border-color:#f5a524;
+  box-shadow:3px 3px 0px #000;
+}
+main{padding:24px 16px 60px;}
 section{display:none;}
 section.aktif{display:block;}
-h1{font-size:24px;margin-bottom:6px;}
-.sub{color:#9aa3ad;margin-bottom:16px;}
-.kartu{background:#111318;border:1px solid #22262e;border-radius:8px;padding:16px;margin-bottom:16px;}
-.kartu h2{margin:0 0 12px;font-size:17px;color:#f5a524;}
-label{display:block;font-size:13px;color:#9aa3ad;margin-bottom:6px;}
-input,select,textarea{width:100%;background:#0e1015;border:1px solid #333a44;color:#e8e8e8;padding:8px 10px;border-radius:6px;font-size:14px;box-sizing:border-box;}
-input:focus,select:focus,textarea:focus{border-color:#f5a524;outline:none;}
-textarea{min-height:100px;font-family:inherit;}
-button{background:#f5a524;color:#0b0c0f;border:none;border-radius:6px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;}
-button:disabled{opacity:.6;cursor:not-allowed;}
-button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
-.pil{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
-.pil button{background:#0e1015;border:1px solid #333a44;color:#9aa3ad;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px;flex:1;text-align:center;}
-.pil button:hover{border-color:#666;}
-.pil button.aktif{background:#f5a524;color:#0b0c0f;border-color:#f5a524;font-weight:600;}
-.proses{margin-top:16px;}
-.langkah{padding:10px 12px;border-radius:8px;background:#0e1015;border:1px solid #22262e;margin-bottom:8px;font-size:13px;}
-.langkah b{font-family:monospace;font-size:12px;color:#f5a524;letter-spacing:1px;}
-.log{margin-top:10px;max-height:200px;overflow:auto;background:#0a0d12;border:1px solid #22262e;border-radius:8px;padding:10px;font-family:monospace;font-size:12px;color:#8fb0d0;}
-.bar{height:6px;background:#22262e;border-radius:3px;margin-top:8px;overflow:hidden;}
-.bar i{display:block;height:100%;width:0;background:#f5a524;}
-.hasil{margin-top:20px;display:none;}
+h1{
+  font-family:'Press Start 2P',monospace;
+  font-size:32px;
+  margin-bottom:8px;
+  color:#f5a524;
+  text-shadow:2px 2px 0px #000;
+  letter-spacing:2px;
+  filter: blur(0.3px);
+}
+h1.rainbow-text{
+  background:linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #8b00ff, #ff0000);
+  background-size:300% 300%;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:rainbow 3s linear infinite;
+}
+h2{
+  font-family:'VT323',monospace;
+  font-size:24px;
+  margin:20px 0 10px;
+  color:#22d3ee;
+  text-shadow:1px 1px 0px #000;
+}
+.sub{
+  color:#9aa3ad;
+  font-family:'VT323',monospace;
+  font-size:18px;
+  margin-bottom:16px;
+}
+.kartu{
+  background:#0a0a0a;
+  border:3px solid #2a2f3a;
+  border-radius:0;
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:4px 4px 0px #000;
+}
+.kartu::before{
+  content:'';
+  position:absolute;
+  top:-3px;
+  left:-3px;
+  right:-3px;
+  bottom:-3px;
+  border:3px solid transparent;
+  border-top-color:#22d3ee;
+  border-left-color:#f5a524;
+  z-index:-1;
+}
+.kartu h2{
+  margin:0 0 12px;
+  font-size:22px;
+  color:#f5a524;
+}
+label{
+  display:block;
+  font-family:'VT323',monospace;
+  font-size:16px;
+  color:#9aa3ad;
+  margin-bottom:6px;
+}
+input,select,textarea{
+  width:100%;
+  background:#0b0c0f;
+  border:3px solid #2a2f3a;
+  color:#e8e8e8;
+  padding:10px 12px;
+  border-radius:0;
+  font-family:'VT323',monospace;
+  font-size:16px;
+  box-sizing:border-box;
+  box-shadow:2px 2px 0px #000;
+}
+input:focus,select:focus,textarea:focus{
+  border-color:#22d3ee;
+  outline:none;
+}
+textarea{min-height:120px;font-family:'VT323',monospace;}
+button{
+  background:#f5a524;
+  color:#0b0c0f;
+  border:3px solid #f5a524;
+  border-radius:0;
+  padding:10px 20px;
+  font-family:'VT323',monospace;
+  font-size:18px;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:4px 4px 0px #000;
+  text-transform:uppercase;
+}
+button:hover{
+  background:#22d3ee;
+  color:#0b0c0f;
+  border-color:#22d3ee;
+  box-shadow:2px 2px 0px #000;
+  transform:translate(-2px,-2px);
+}
+button:active{
+  transform:translate(2px,2px);
+  box-shadow:0px 0px 0px #000;
+}
+button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+button.kedua{
+  background:#0a0a0a;
+  border:3px solid #2a2f3a;
+  color:#e8e8e8;
+  box-shadow:3px 3px 0px #000;
+}
+button.kedua:hover{
+  border-color:#22d3ee;
+  color:#22d3ee;
+  box-shadow:2px 2px 0px #000;
+  background:#0a0a0a;
+}
+.pil{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+  flex-wrap:wrap;
+}
+.pil button{
+  background:#0a0a0a;
+  border:3px solid #2a2f3a;
+  color:#9aa3ad;
+  padding:8px 14px;
+  border-radius:0;
+  font-family:'VT323',monospace;
+  font-size:16px;
+  cursor:pointer;
+  text-transform:uppercase;
+  box-shadow:3px 3px 0px #000;
+  flex:1;
+  text-align:center;
+}
+.pil button:hover{
+  border-color:#22d3ee;
+  color:#22d3ee;
+  box-shadow:2px 2px 0px #000;
+}
+.pil button.aktif{
+  background:#f5a524;
+  color:#0b0c0f;
+  border-color:#f5a524;
+  box-shadow:3px 3px 0px #000;
+}
+.proses{
+  margin-top:20px;
+  border:3px solid #2a2f3a;
+  background:#0a0a0a;
+  border-radius:0;
+  padding:16px;
+  box-shadow:4px 4px 0px #000;
+}
+.langkah{
+  padding:10px 12px;
+  border:2px solid #2a2f3a;
+  background:#0b0c0f;
+  margin-bottom:8px;
+  font-size:16px;
+  font-family:'VT323',monospace;
+  box-shadow:2px 2px 0px #000;
+}
+.langkah b{
+  font-family:'VT323',monospace;
+  font-size:16px;
+  color:#f5a524;
+  letter-spacing:1px;
+}
+.log{
+  margin-top:10px;
+  max-height:200px;
+  overflow:auto;
+  background:#000;
+  border:3px solid #2a2f3a;
+  border-radius:0;
+  padding:12px;
+  font-family:'VT323',monospace;
+  font-size:14px;
+  color:#8fb0d0;
+  box-shadow:2px 2px 0px #000;
+}
+.bar{
+  height:8px;
+  background:#2a2f3a;
+  margin-top:10px;
+  overflow:hidden;
+  border:2px solid #000;
+}
+.bar i{
+  display:block;
+  height:100%;
+  width:0;
+  background:#22d3ee;
+  box-shadow:0 0 8px #22d3ee;
+}
+.bar.px i{
+  background:repeating-linear-gradient(
+    90deg,
+    #ff0000 0,
+    #ff0000 4px,
+    #ff7f00 4px,
+    #ff7f00 8px,
+    #ffff00 8px,
+    #ffff00 12px,
+    #00ff00 12px,
+    #00ff00 16px,
+    #0000ff 16px,
+    #0000ff 20px,
+    #8b00ff 20px,
+    #8b00ff 24px,
+    #ff0000 24px,
+    #ff0000 28px
+  );
+  background-size:200% 100%;
+  animation:rainbow-bar 1s linear infinite;
+}
+.bar.px.done i{
+  background:repeating-linear-gradient(
+    90deg,
+    #22c55e 0,
+    #22c55e 4px,
+    #16a34a 4px,
+    #16a34a 8px
+  );
+  box-shadow:0 0 12px #22c55e;
+}
+.hasil{
+  margin-top:20px;
+  display:none;
+}
 .hasil.aktif{display:block;}
-.kartu-klip{display:grid;grid-template-columns:180px 1fr;gap:14px;padding:14px;margin-bottom:12px;border:1px solid #22262e;border-radius:8px;background:#0e1015;}
-.kartu-klip video{width:180px;aspect-ratio:9/16;border-radius:6px;background:#000;object-fit:cover;}
-.kartu-klip h4{margin:0 0 6px;font-size:16px;line-height:1.3;color:#e8e8e8;}
-.kartu-klip small{color:#9aa3ad;font-size:12px;}
-.kartu-klip .meta{display:flex;gap:8px;margin-bottom:10px;font-family:monospace;font-size:11px;color:#667;}
-.daftar{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;}
-.item{border:1px solid #22262e;border-radius:8px;overflow:hidden;background:#0e1015;}
-.item .jenis{font-family:monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9aa3ad;padding:6px 10px;border-bottom:1px solid #22262e;}
-.item h4{margin:8px 10px 4px;font-size:15px;line-height:1.3;color:#e8e8e8;}
-.item small{color:#9aa3ad;font-size:12px;padding:4px 10px;display:block;}
-.penyedia{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px;}
-.pny{border:1px solid #333a44;border-radius:8px;padding:16px;background:#0e1015;cursor:pointer;}
-.pny:hover{border-color:#666;}
-.pny.aktif{border-color:#f5a524;background:#16140d;}
-.pny b{display:block;font-size:15px;margin-bottom:4px;}
-.pny small{color:#9aa3ad;font-size:12px;line-height:1.4;}
-.kunci{background:#0e1015;border:1px solid #22262e;border-radius:8px;padding:16px;margin-top:12px;}
-.kunci input{font-family:monospace;font-size:12px;letter-spacing:1px;}
-.aksi{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111318;border:1px solid #333a44;color:#e8e8e8;padding:10px 16px;border-radius:8px;font-size:13px;pointer-events:none;opacity:0;z-index:50;}
+.kartu-klip{
+  display:grid;
+  grid-template-columns:180px 1fr;
+  gap:14px;
+  padding:14px;
+  margin-bottom:12px;
+  border:3px solid #2a2f3a;
+  border-radius:0;
+  background:#0a0a0a;
+  box-shadow:4px 4px 0px #000;
+}
+.kartu-klip video{
+  width:180px;
+  aspect-ratio:9/16;
+  border:3px solid #000;
+  background:#000;
+  object-fit:cover;
+  image-rendering:pixelated;
+}
+.kartu-klip h4{
+  margin:0 0 6px;
+  font-size:18px;
+  line-height:1.3;
+  color:#e8e8e8;
+  font-family:'VT323',monospace;
+}
+.kartu-klip small{
+  color:#9aa3ad;
+  font-size:14px;
+  font-family:'VT323',monospace;
+}
+.kartu-klip .meta{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
+  font-family:'VT323',monospace;
+  font-size:14px;
+  color:#667;
+}
+.daftar{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:14px;
+}
+.item{
+  border:3px solid #2a2f3a;
+  border-radius:0;
+  background:#0a0a0a;
+  box-shadow:4px 4px 0px #000;
+  cursor:pointer;
+}
+.item:hover{
+  border-color:#22d3ee;
+  transform:translate(-2px,-2px);
+  box-shadow:2px 2px 0px #000;
+}
+.item .jenis{
+  font-family:'VT323',monospace;
+  font-size:14px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:#22d3ee;
+  padding:8px 12px;
+  border-bottom:2px solid #2a2f3a;
+}
+.item h4{
+  margin:10px 12px 6px;
+  font-size:18px;
+  line-height:1.3;
+  color:#e8e8e8;
+  font-family:'VT323',monospace;
+}
+.item small{
+  color:#9aa3ad;
+  font-size:14px;
+  padding:8px 12px;
+  display:block;
+  font-family:'VT323',monospace;
+}
+.penyedia{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:12px;
+  margin-bottom:16px;
+}
+.pny{
+  border:3px solid #2a2f3a;
+  border-radius:0;
+  padding:18px;
+  background:#0a0a0a;
+  cursor:pointer;
+  box-shadow:4px 4px 0px #000;
+}
+.pny:hover{
+  border-color:#22d3ee;
+  box-shadow:2px 2px 0px #000;
+}
+.pny.aktif{
+  border-color:#f5a524;
+  background:#16140d;
+  box-shadow:4px 4px 0px #f5a524;
+}
+.pny b{
+  display:block;
+  font-size:18px;
+  margin-bottom:4px;
+  font-family:'VT323',monospace;
+  color:#f5a524;
+}
+.pny small{
+  color:#9aa3ad;
+  font-size:16px;
+  line-height:1.4;
+  font-family:'VT323',monospace;
+}
+.kunci{
+  background:#0a0a0a;
+  border:3px solid #2a2f3a;
+  border-radius:0;
+  padding:16px;
+  margin-top:12px;
+  box-shadow:4px 4px 0px #000;
+}
+.kunci input{
+  font-family:'VT323',monospace;
+  font-size:16px;
+  letter-spacing:1px;
+}
+.aksi{
+  margin-top:16px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.toast{
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#0a0a0a;
+  border:3px solid #22d3ee;
+  color:#e8e8e8;
+  padding:12px 20px;
+  border-radius:0;
+  font-size:18px;
+  font-family:'VT323',monospace;
+  pointer-events:none;
+  opacity:0;
+  z-index:50;
+  box-shadow:4px 4px 0px #000;
+  text-transform:uppercase;
+}
 .toast.tampil{opacity:1;}
-@media (max-width:700px){.kartu-klip{grid-template-columns:1fr;}.kartu-klip video{width:100%;}.container{padding:8px;}}
+.toast.galat{border-color:#ef4444;color:#ef4444;}
+@media (max-width:700px){
+  /* ---- Layout dasar ---- */
+  .container{padding:10px;}
+  body{font-size:17px;}
+
+  /* ---- Header: logo di atas, nav bisa digeser horizontal ---- */
+  header{flex-wrap:wrap;padding:10px;gap:8px;}
+  .logo{font-size:12px;width:100%;}
+  nav{
+    margin-left:0;width:100%;gap:6px;padding-bottom:4px;
+    overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;
+    -webkit-overflow-scrolling:touch;scrollbar-width:thin;
+  }
+  nav button{flex:0 0 auto;padding:10px 12px;font-size:15px;min-height:44px;white-space:nowrap;}
+
+  /* ---- Target sentuh minimal 44 px (pedoman Apple/Google) ---- */
+  button,.tombol{min-height:44px;}
+  .tombol{padding:12px 14px;font-size:17px;}
+
+  /* ---- Border & shadow dikurangi: layar sempit butuh tiap piksel ---- */
+  .kartu{padding:12px;border-width:2px;box-shadow:2px 2px 0 #000;}
+  .kunci{padding:12px;border-width:2px;box-shadow:2px 2px 0 #000;}
+  .kartu-klip{grid-template-columns:1fr;padding:12px;border-width:2px;}
+  .kartu-klip video{width:100%;}
+
+  /* ---- Form: font >=16px mencegah iOS Safari auto-zoom saat fokus ---- */
+  input,select,textarea{font-size:16px !important;min-height:44px;}
+  input[type=range]{height:32px;min-height:32px;}
+  .input{width:100%;}
+
+  /* ---- Tombol pilihan: 2 per baris supaya tidak gepeng ---- */
+  .pil{gap:6px;}
+  .pil button{flex:1 1 calc(50% - 6px);min-width:0;padding:10px 8px;font-size:15px;min-height:44px;}
+
+  /* ---- Kartu penyedia AI jadi satu kolom ---- */
+  .penyedia{grid-template-columns:1fr;gap:8px;}
+  .pny{padding:12px;border-width:2px;}
+  .pny small{font-size:15px;}
+
+  /* ---- Log dibatasi tingginya agar tidak memenuhi layar ---- */
+  .log{max-height:38vh;font-size:13px;padding:10px;}
+
+  /* ---- Aksi: tombol lebar penuh, mudah dijangkau ibu jari ---- */
+  .aksi{gap:8px;}
+  .aksi .tombol{flex:1 1 100%;}
+
+  /* ---- Media tidak pernah melampaui layar ---- */
+  img,video{max-width:100%;height:auto;}
+
+  /* ---- Tabel/daftar riwayat ---- */
+  table{display:block;overflow-x:auto;font-size:14px;}
+}
+/* pixel cursor */
+body{cursor:crosshair;}
+a{cursor:crosshair;}
+button{cursor:crosshair;}
 </style>
 </head>
 <body>
@@ -74,13 +555,14 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
     <button data-ke="motion">Motion</button>
     <button data-ke="riwayat">Riwayat</button>
     <button data-ke="pengaturan">Pengaturan AI</button>
+    <button onclick="location.href='/keluar'" title="Kunci Studio">Keluar</button>
   </nav>
 </header>
 
 <main>
 <!-- BERANDA -->
 <section class="halaman aktif" id="h-beranda">
-  <h1>Mau bikin apa hari ini?</h1>
+  <h1 class="rainbow-text">isanovski Studio</h1>
   <p class="sub">Potong video panjang jadi klip, atau ubah topik jadi video animasi.</p>
   <div style="display:flex;gap:12px;margin-top:16px;">
     <button class="tombol" data-ke="klip">🎬 Potong video jadi klip</button>
@@ -94,18 +576,28 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
 
 <!-- KLIP -->
 <section class="halaman" id="h-klip">
-  <h1>Potong video panjang jadi klip</h1>
+  <h1 class="rainbow-text">Potong video panjang jadi klip</h1>
   <p class="sub">Tempel link YouTube atau seret file video. Semua diproses di laptopmu.</p>
   <div class="kartu">
     <h2>1. Sumber video</h2>
     <div style="display:flex;gap:8px;align-items:end;">
       <input class="input" id="sumber" placeholder="https://youtube.com/watch?v=… atau pilih file di bawah" style="flex:1;">
       <input type="file" id="pilihFile" accept="video/*" hidden>
+      <div class="bar px" id="barUpload" style="display:none;margin-top:10px;"><i id="batangUpload"></i></div>
+      <div id="infoUpload" style="font-size:14px;color:#9aa3ad;margin-top:4px;"></div>
       <button class="tombol kedua" id="tblFile">Pilih file</button>
     </div>
     <div id="daftarSumber" style="margin-top:8px;"></div>
 
     <h2 style="margin-top:20px">2. Atur klip</h2>
+    <label>Berapa klip yang mau dibuat</label>
+    <div class="pil" id="pilJumlah">
+      <button data-v="1">1 klip</button>
+      <button data-v="3" class="aktif">3 klip</button>
+      <button data-v="5">5 klip</button>
+      <button data-v="10">10 klip</button>
+    </div>
+    <label style="margin-top:12px">Durasi tiap klip</label>
     <div class="pil" id="pilDurasi">
       <button data-v="15">± 15 dtk</button>
       <button data-v="30" class="aktif">± 30 dtk</button>
@@ -135,6 +627,34 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
         <button data-v="gamer">Gamer (wajah atas + gameplay bawah)</button>
       </div>
     </div>
+    <div id="bSisiFacecam" style="margin-top:12px; display:none;">
+      <label>Posisi facecam di video asli <em>(PiP pojok bawah)</em></label>
+      <div class="pil" id="pilSisi">
+        <button data-v="otomatis" class="aktif">Otomatis (deteksi wajah)</button>
+        <button data-v="kiri">Kiri bawah</button>
+        <button data-v="kanan">Kanan bawah</button>
+      </div>
+      <div class="catatan" style="margin-top:4px;font-size:14px;color:#9aa3ad">Dipakai kalau TIDAK ada file facecam terpisah. Kalau kamu pilih file facecam sendiri di bawah, posisi ini diabaikan.</div>
+      <button class="tombol kedua kecil" id="tblCropToggle" style="margin-top:10px">Atur kotak crop (opsional)</button>
+      <div id="bCropFacecam" style="margin-top:12px;display:none;">
+        <label>Kotak potong facecam <em>(geser sampai pas dengan PiP)</em></label>
+        <div style="margin-top:6px;">
+          <img id="imgPratinjau" style="width:100%;max-width:440px;border:3px solid #2a2f3a;display:none;background:#000" alt="pratinjau">
+          <div class="catatan" id="infoCrop" style="font-size:14px;color:#9aa3ad;margin-top:4px">Pilih sumber video dulu, lalu klik "Muat pratinjau".</div>
+        </div>
+        <div style="margin-top:8px;"><label style="font-size:15px">Lebar <span id="nCropW">26</span>%</label>
+          <input type="range" id="rCropW" min="8" max="70" value="26" style="width:100%"></div>
+        <div><label style="font-size:15px">Geser X <span id="nCropX">74</span>%</label>
+          <input type="range" id="rCropX" min="0" max="100" value="74" style="width:100%"></div>
+        <div><label style="font-size:15px">Geser Y <span id="nCropY">75</span>%</label>
+          <input type="range" id="rCropY" min="0" max="100" value="75" style="width:100%"></div>
+        <div class="aksi" style="margin-top:6px;">
+          <button class="tombol kedua kecil" id="tblCropRefresh">Muat pratinjau</button>
+          <button class="tombol kedua kecil" id="tblCropAuto">Otomatis</button>
+          <button class="tombol kedua kecil" id="tblCropReset">Reset slider</button>
+        </div>
+      </div>
+    </div>
     <div id="bFacecamFile" style="margin-top:12px; display:none;">
       <label>File facecam kamera <em>pisah dari video gameplay</em></label>
       <div style="display:flex;gap:8px;">
@@ -143,6 +663,23 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
         <span id="nFacecam">belum ada</span>
       </div>
       <div id="daftarFacecam" style="margin-top:8px;"></div>
+    </div>
+    <div style="margin-top:12px;">
+      <label>Bahasa judul/banner <em>(dipakai AI saat menulis judul)</em></label>
+      <div class="pil" id="pilBahasaJudul">
+        <button data-v="id" class="aktif">Bahasa Indonesia</button>
+        <button data-v="en">English</button>
+      </div>
+      <div class="catatan" style="margin-top:4px;font-size:14px;color:#9aa3ad">Kalau AI mati (lokal), judul diambil mentah dari transkrip sehingga bahasanya mengikuti video.</div>
+    </div>
+    <div style="margin-top:12px;">
+      <label>Model Whisper <em>(mak besar mak lambat &amp; makin berat RAM)</em></label>
+      <div class="pil" id="pilModel">
+        <button data-v="tiny">Tiny (cepat, kasar)</button>
+        <button data-v="small" class="aktif">Small (bawaan)</button>
+        <button data-v="medium">Medium (akurat, 2,7× lambat)</button>
+      </div>
+      <div class="catatan" style="margin-top:4px;font-size:14px;color:#9aa3ad">Medium terukur di VPS ini: ~1,6 GB RAM, 22,5 dtk per 60 dtk audio. Video 20 menit ≈ 8–12 menit.</div>
     </div>
     <div style="margin-top:12px;">
       <label>Preset cari momen</label>
@@ -154,7 +691,10 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
     <div style="margin-top:12px;">
       <label>AI produksi <em>hybrid: AI + sinyal gaming lokal</em></label>
       <div class="pil" id="pilAI">
-        <button data-v="lokal" class="aktif">Lokal (tanpa AI)</button>
+        <button data-v="" class="aktif">Ikuti Pengaturan</button>
+        <button data-v="lokal">Lokal (tanpa AI)</button>
+        <button data-v="gemini">Gemini</button>
+        <button data-v="openai">DeepSeek</button>
         <button data-v="openrouter">OpenRouter free</button>
       </div>
     </div>
@@ -168,12 +708,13 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
     </div>
     <div class="aksi" style="margin-top:16px">
       <button class="tombol utama" id="tblKlip">Analisis &amp; pilih momen</button>
+      <button class="tombol utama" id="tblKlipRender">Analisis + Render</button>
     </div>
   </div>
 
   <div class="proses" id="prosesKlip">
     <div class="langkah" id="lkKlip">Siap…</div>
-    <div class="bar"><i id="batangKlip"></i></div>
+    <div class="bar px" id="barKlip"><i id="batangKlip"></i></div>
     <div class="log" id="logKlip"></div>
     <div class="aksi"><button class="tombol kedua" data-batal>Batalkan</button></div>
   </div>
@@ -182,7 +723,7 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
 
 <!-- MOTION -->
 <section class="halaman" id="h-motion">
-  <h1>Topik jadi video animasi</h1>
+  <h1 class="rainbow-text">Topik jadi video animasi</h1>
   <p class="sub">AI menulis naskah per adegan, suara narator, dan render jadi MP4.</p>
   <div class="kartu">
     <h2>1. Isi video</h2>
@@ -194,7 +735,7 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
       <textarea class="input" id="topik" placeholder="mis. 3 kebiasaan pagi yang bikin produktif"></textarea>
     </div>
     <div id="isiNaskah" hidden>
-      <textarea class="input" id="naskahJSON" style="min-height:160px;font-family:monospace;font-size:12px" placeholder='{"judul":"...","adegan":[{"judul":"...","teks":"...","kunci":["..."],"ikon":"🔥"}]}'></textarea>
+      <textarea class="input" id="naskahJSON" style="min-height:160px;font-family:'VT323',monospace;font-size:14px" placeholder='{"judul":"...","adegan":[{"judul":"...","teks":"...","kunci":["..."],"ikon":"🔥"}]}'></textarea>
     </div>
 
     <h2 style="margin-top:20px">2. Gaya video</h2>
@@ -222,7 +763,7 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
 
   <div class="proses" id="prosesMotion">
     <div class="langkah" id="lkMotion">Siap…</div>
-    <div class="bar"><i id="batangMotion"></i></div>
+    <div class="bar px" id="barMotion"><i id="batangMotion"></i></div>
     <div class="log" id="logMotion"></div>
     <div class="aksi"><button class="tombol kedua" data-batal>Batalkan</button></div>
   </div>
@@ -231,7 +772,7 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
 
 <!-- RIWAYAT -->
 <section class="halaman" id="h-riwayat">
-  <h1>Riwayat proyek</h1>
+  <h1 class="rainbow-text">Riwayat proyek</h1>
   <p class="sub">Semua hasil tersimpan di VPS. Klik proyek untuk lihat detail klip.</p>
   <input class="input" id="cariRiwayat" placeholder="Cari proyek…" style="max-width:360px;margin-bottom:14px;">
   <div class="daftar" id="daftarProyek"></div>
@@ -247,30 +788,61 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
 
 <!-- PENGATURAN -->
 <section class="halaman" id="h-pengaturan">
-  <h1>Pengaturan AI</h1>
+  <h1 class="rainbow-text">Pengaturan AI</h1>
   <p class="sub">Studio tidak menyediakan AI. Sambungkan AI yang kamu punya.</p>
   <div class="penyedia" id="pilPenyedia">
-    <button class="pny aktif" data-v="lokal"><b>Lokal</b><small>Rumus heatmap, energi suara, kata hook. Tanpa daftar.</small><span style="color:#84c46b;font-weight:bold">GRATIS</span></button>
-    <button class="pny" data-v="gemini"><b>Google Gemini</b><small>Kunci gratis dari Google AI Studio.</small><span style="color:#84c46b;font-weight:bold">ADA KUOTA GRATIS</span></button>
-    <button class="pny" data-v="openai"><b>Ollama / OpenAI</b><small>AI di laptop sendiri atau OpenAI, OpenRouter, Groq.</small><span style="color:#9aa3ad;font-weight:bold">GRATIS / SESUAI</span></button>
-    <button class="pny" data-v="openrouter"><b>OpenRouter (model FREE)</b><small>Rantai model gratis OpenRouter untuk semua tahap produksi: pilih momen, hook, caption, QC.</small><span style="color:#84c46b;font-weight:bold">GRATIS</span></button>
+    <button class="pny aktif" data-v="lokal"><b>Lokal</b><small>Rumus heatmap, energi suara, kata hook. Tanpa daftar.</small><span style="color:#22c55e;font-weight:bold">GRATIS</span></button>
+    <button class="pny" data-v="gemini"><b>Google Gemini</b><small>Kunci gratis dari Google AI Studio.</small><span style="color:#22c55e;font-weight:bold">ADA KUOTA GRATIS</span></button>
+    <button class="pny" data-v="openai"><b>DeepSeek / Ollama / OpenAI</b><small>DeepSeek (murah, ~2 detik) atau AI lokal / OpenAI-compatible.</small><span style="color:#22c55e;font-weight:bold">MURAH / GRATIS</span></button>
+    <button class="pny" data-v="openrouter"><b>OpenRouter (model FREE)</b><small>Rantai model gratis OpenRouter untuk semua tahap produksi: pilih momen, hook, caption, QC.</small><span style="color:#22c55e;font-weight:bold">GRATIS</span></button>
     <button class="pny" data-v="langganan"><b>Pakai langganan</b><small>Claude Pro/Max, ChatGPT Plus/Pro lewat CLI resmi. Tanpa kunci API.</small><span style="color:#f5a524;font-weight:bold">PAKAI LANGGANANMU</span></button>
   </div>
-  <div class="kunci" id="kunciGemini" style="margin-top:16px;">
-    <h2 style="margin:0 0 10px;font-size:15px;font-weight:600">Gemini API key</h2>
+  <div class="kunci" id="kunciGemini" style="margin-top:16px;display:none;">
+    <h2 style="margin:0 0 10px;font-size:22px;font-weight:600">Gemini API key</h2>
     <input class="input" id="GEMINI_API_KEY" type="password" placeholder="AIza…" autocomplete="off">
-    <div class="catatan" style="margin-top:6px;font-size:12px;color:#9aa3ad">Ambil kunci gratis di <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#1d4ed8">aistudio.google.com/apikey</a></div>
+    <button class="tombol kedua kecil" data-hapus-kunci="GEMINI_API_KEY" style="margin-top:6px">Hapus</button>
+    <div class="catatan" style="margin-top:6px;font-size:14px;color:#9aa3ad">Ambil kunci gratis di <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#22d3ee">aistudio.google.com/apikey</a></div>
+  </div>
+  <div class="kunci" id="kunciOpenAI" style="margin-top:16px;display:none;">
+    <h2 style="margin:0 0 10px;font-size:22px;font-weight:600">DeepSeek / OpenAI-compatible</h2>
+    <label>Base URL</label>
+    <input class="input" id="OPENAI_BASE_URL" placeholder="https://api.deepseek.com">
+    <label style="margin-top:8px">API key</label>
+    <input class="input" id="OPENAI_API_KEY" type="password" placeholder="sk-…" autocomplete="off">
+    <button class="tombol kedua kecil" data-hapus-kunci="OPENAI_API_KEY" style="margin-top:6px">Hapus</button>
+    <label style="margin-top:8px">Model</label>
+    <input class="input" id="OPENAI_MODEL" placeholder="deepseek-flash">
+    <label style="margin-top:8px">Thinking mode</label>
+    <div class="pil" id="pilThinking">
+      <button data-v="disabled" class="aktif">Disabled (cepat, JSON)</button>
+      <button data-v="enabled">Enabled (mahal,<think>)</button>
+    </div>
+    <div class="catatan" style="margin-top:6px;font-size:14px;color:#9aa3ad">DeepSeek: <code>deepseek-flash</code> + thinking <b>disabled</b> = ~2 detik, JSON valid. Thinking enabled membakar semua token untuk reasoning → jawaban kosong.</div>
+  </div>
+  <div class="kunci" id="kunciLangganan" style="margin-top:16px;display:none;">
+    <h2 style="margin:0 0 10px;font-size:22px;font-weight:600">CLI langganan</h2>
+    <div class="pil" id="pilLangganan">
+      <button data-v="claude-code" class="aktif">Claude Code</button>
+      <button data-v="codex">Codex (ChatGPT)</button>
+      <button data-v="opencode">OpenCode</button>
+    </div>
+    <div class="aksi">
+      <button class="tombol kedua kecil" id="tblPasangCli">Pasang CLI</button>
+      <button class="tombol kedua kecil" id="tblLoginCli">Login</button>
+    </div>
+    <div class="catatan" style="margin-top:8px;font-size:14px;color:#9aa3ad">CLI dipasang ke folder <code>~/.studio-isanovski/cli</code> (tanpa sudo). Login memakai akun berlanggananmu sendiri.</div>
   </div>
   <div class="kunci" id="kunciOpenRouter" style="margin-top:16px;display:none;">
-    <h2 style="margin:0 0 10px;font-size:15px;font-weight:600">OpenRouter API key</h2>
+    <h2 style="margin:0 0 10px;font-size:22px;font-weight:600">OpenRouter API key</h2>
     <input class="input" id="OPENROUTER_API_KEY" type="password" placeholder="sk-or-v1-…" autocomplete="off">
-    <div class="catatan" style="margin-top:6px;font-size:12px;color:#9aa3ad">Buat key gratis di <a href="https://openrouter.ai/keys" target="_blank" style="color:#1d4ed8">openrouter.ai/keys</a>. Hanya model <code>:free</code> yang dipakai.</div>
+    <button class="tombol kedua kecil" data-hapus-kunci="OPENROUTER_API_KEY" style="margin-top:6px">Hapus</button>
+    <div class="catatan" style="margin-top:6px;font-size:14px;color:#9aa3ad">Buat key gratis di <a href="https://openrouter.ai/keys" target="_blank" style="color:#22d3ee">openrouter.ai/keys</a>. Hanya model <code>:free</code> yang dipakai.</div>
   </div>
   <div class="aksi" style="margin-top:16px">
     <button class="tombol utama" id="tblSimpan">Simpan pengaturan</button>
     <button class="tombol kedua" id="tblUji">Uji koneksi</button>
   </div>
-  <div id="hasilUji" style="margin-top:10px;padding:10px 14px;border-radius:8px;font-size:13px;"></div>
+  <div id="hasilUji" style="margin-top:10px;padding:12px;border:3px solid #2a2f3a;background:#0a0a0a;font-size:16px;font-family:'VT323',monospace;"></div>
 </section>
 
 </main>
@@ -281,22 +853,176 @@ button.kedua{background:transparent;border:1px solid #333a44;color:#e8e8e8;}
 <script>
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
-const esc=(s)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=(s)=>String(s??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const toast=(t,galat)=>{const el=$('#toast');el.textContent=t;el.className='toast tampil'+(galat?' galat':'');clearTimeout(el._t);el._t=setTimeout(()=>el.className='toast',galat?7000:2600);};
-const api=async(url,body)=>{const r=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw new Error(j.galat||'Gagal');return j;};
+const api=async(url,body,method)=>fetch(url,{method:method||(body? 'POST':'GET'),...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})}).then(async r=>{const j=await r.json();if(!r.ok)throw new Error(j.galat||'Gagal');return j;});
 
 $$('nav button').forEach(n=>n.onclick=()=>{$$('nav button').forEach(x=>x.classList.toggle('aktif',x===n));$$('.halaman').forEach(x=>x.classList.toggle('aktif',x.id==='h-'+n.dataset.ke));if(n.dataset.ke==='riwayat')muatRiwayat();if(n.dataset.ke==='pengaturan')muatPengaturan();if(n.dataset.ke==='beranda')muatBeranda();});
 
 // ---- KLIP ----
-$('#tblFile').onclick=()=>$('#pilihFile').click();
-$('#pilihFile').onchange=async(e)=>{const f=e.target.files[0];if(!f)return;const r=await fetch('/api/unggah',{method:'POST',headers:{'X-Nama-File':f.name},body:f});const j=await r.json();$('#sumber').value=j.jalur;toast('File tersimpan: '+f.name);muatFileUpload();};
-$('#pilDurasi').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilDurasi button').forEach(x=>x.classList.toggle('aktif',x===b));};
-$('#pilFace').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilFace button').forEach(x=>x.classList.toggle('aktif',x===b));$('#bFaceManual').style.display=b.dataset.v==='manual'?'':'none';};
-$('#gFaceX').oninput=(e)=>{$('#nFaceX').textContent=(e.target.value/100).toFixed(2)+(e.target.value==50?' (tengah)':e.target.value<50?' (kiri)':' (kanan)');};
-$('#pilLayout').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilLayout button').forEach(x=>x.classList.toggle('aktif',x===b));$('#bFacecamFile').style.display=b.dataset.v==='gamer'?'':'none';};
 let facecamPath='';
+let sumberPath='';
+
+// ---- UPLOAD DENGAN BAR PROGRES ----
+// fetch() TIDAK punya upload.onprogress, jadi progres harus pakai XMLHttpRequest.
+function unggahDenganProgres(file, jenis, onProgres){
+  return new Promise((resolve,reject)=>{
+    const xhr=new XMLHttpRequest();
+    xhr.open('POST','/api/unggah');
+    xhr.setRequestHeader('X-Nama-File', file.name);
+    if(jenis)xhr.setRequestHeader('X-Jenis', jenis);
+    xhr.upload.onprogress=(e)=>{ if(e.lengthComputable)onProgres(e.loaded,e.total); };
+    xhr.onload=()=>{
+      if(xhr.status>=200&&xhr.status<300){
+        try{resolve(JSON.parse(xhr.responseText));}catch(err){reject(new Error('Respons server bukan JSON'));}
+      }else reject(new Error('HTTP '+xhr.status+' — '+xhr.responseText.slice(0,120)));
+    };
+    xhr.onerror=()=>reject(new Error('Unggah gagal: koneksi terputus'));
+    xhr.ontimeout=()=>reject(new Error('Unggah timeout'));
+    xhr.upload.onabort=()=>reject(new Error('Unggah dibatalkan'));
+    xhr.send(file);
+  });
+}
+function mb(n){return (n/1048576).toFixed(n>10485760?0:1);}
+function prosesUpload(tampil,pct,info){
+  const b=$('#barUpload'); if(!b)return;
+  b.style.display=tampil?'':'none';
+  if(tampil){
+    $('#batangUpload').style.width=pct+'%';
+    $('#barUpload').className='bar px'+(pct>=100?' done':'');
+    $('#infoUpload').textContent=info||'';
+  }else{$('#infoUpload').textContent='';}
+}
+async function unggahSatu(file, jenis){
+  if(!file)return null;
+  const t0=performance.now();
+  prosesUpload(true,0,'Menyiapkan unggahan…');
+  try{
+    const j=await unggahDenganProgres(file,jenis,(loaded,total)=>{
+      const pct=total?Math.round(loaded/total*100):0;
+      const dtk=Math.max((performance.now()-t0)/1000,0.05);
+      const cepat=loaded/dtk/1048576;                       // MB/dtk
+      const sisa=cepat>0?(total-loaded)/1048576/cepat:0;    // estimasi detik tersisa
+      prosesUpload(true,pct,
+        `${pct}% · ${mb(loaded)} / ${mb(total)} MB · ${cepat.toFixed(1)} MB/dtk`+
+        (pct<100&&sisa>0?` · sisa ~${Math.ceil(sisa)} dtk`:''));
+    });
+    prosesUpload(true,100,`Selesai · ${mb(file.size)} MB`);
+    setTimeout(()=>prosesUpload(false,0,''),2500);
+    return j;
+  }catch(e){
+    prosesUpload(true,0,'Gagal: '+e.message);
+    $('#barUpload').className='bar px';
+    throw e;
+  }
+}
+$('#tblFile').onclick=()=>$('#pilihFile').click();
+$('#pilihFile').onchange=async(e)=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const j=await unggahSatu(f,'');
+    $('#sumber').value=j.jalur; sumberPath=j.jalur;
+    toast('File tersimpan: '+f.name);
+    muatSumber(); muatFacecam();
+  }catch(err){toast(err.message,true);}
+  e.target.value='';
+};
+$('#pilJumlah').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilJumlah button').forEach(x=>x.classList.toggle('aktif',x===b));};
+$('#pilDurasi').onclick=(e)=>{
+  const b=e.target.closest('button');if(!b)return;
+  $$('#pilDurasi button').forEach(x=>x.classList.toggle('aktif',x===b));
+};
+$('#pilFace').onclick=(e)=>{
+  const b=e.target.closest('button');if(!b)return;
+  $$('#pilFace button').forEach(x=>x.classList.toggle('aktif',x===b));
+  $('#bFaceManual').style.display=b.dataset.v==='manual'?'':'none';
+};
+$('#gFaceX').oninput=(e)=>{
+  $('#nFaceX').textContent=(e.target.value/100).toFixed(2)+(e.target.value==50?' (tengah)':e.target.value<50?' (kiri)':' (kanan)');
+};
+$('#pilLayout').onclick=(e)=>{
+  const b=e.target.closest('button');if(!b)return;
+  $$('#pilLayout button').forEach(x=>x.classList.toggle('aktif',x===b));
+  $('#bFacecamFile').style.display=b.dataset.v==='gamer'?'':'none';
+  $('#bSisiFacecam').style.display=b.dataset.v==='gamer'?'':'none';
+  if(b.dataset.v==='gamer'){
+    // Konten gamer = highlight 15-35 detik, bukan cuplikan 60 detik.
+    const d30=$('#pilDurasi button[data-v="30"]');
+    if(d30){$$('#pilDurasi button').forEach(x=>x.classList.toggle('aktif',x===d30));}
+    const mg=$('#pilMomen button[data-v="gamer"]');
+    if(mg){$$('#pilMomen button').forEach(x=>x.classList.toggle('aktif',x===mg));}
+  }
+};
+$('#pilSisi').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilSisi button').forEach(x=>x.classList.toggle('aktif',x===b));};
+// ---- PRATINJAU + CROP MANUAL FACECAM ----
+let cropSumber={w:0,h:0}, cropManual=false, cropTimer=null;
+function cropDariSlider(){
+  const {w,h}=cropSumber; if(!w||!h)return null;
+  let cw=Math.max(16,Math.round(w*(+$('#rCropW').value/100)));
+  let ch=Math.round(cw*9/16);   // 16:9, pas dengan slot facecam 1080x608
+  let x=Math.round(w*(+$('#rCropX').value/100));
+  let y=Math.round(h*(+$('#rCropY').value/100));
+  x=Math.max(0,Math.min(x,w-cw)); y=Math.max(0,Math.min(y,h-ch));
+  return [x,y,cw,ch];
+}
+async function muatPratinjau(){
+  const sumber=$('#sumber').value.trim();
+  if(!sumber){toast('Pilih sumber video dulu',true);return;}
+  if(!/\.(mp4|mov|mkv|webm)$/i.test(sumber)){toast('Pratinjau hanya untuk file video di VPS',true);return;}
+  $('#infoCrop').textContent='Memuat pratinjau…';
+  try{
+    const c=cropManual?cropDariSlider():null;
+    const url='/api/pratinjau-facecam?sumber='+encodeURIComponent(sumber)+'&t=4'+(c?('&crop='+c.join(',')):'');
+    const j=await (await fetch(url)).json();
+    if(j.galat){$('#infoCrop').textContent=j.galat;return;}
+    cropSumber={w:j.w,h:j.h};
+    $('#imgPratinjau').src='data:image/jpeg;base64,'+j.img;
+    $('#imgPratinjau').style.display='block';
+    if(!cropManual){
+      // slider mengikuti kotak otomatis
+      const [x,y,cw,ch]=j.otomatis;
+      $('#rCropW').value=Math.round(cw/j.w*100);
+      $('#rCropX').value=Math.round(x/j.w*100);
+      $('#rCropY').value=Math.round(y/j.h*100);
+      $('#nCropW').textContent=$('#rCropW').value;
+      $('#nCropX').textContent=$('#rCropX').value;
+      $('#nCropY').textContent=$('#rCropY').value;
+    }
+    const c2=j.crop;
+    $('#infoCrop').textContent=`Sumber ${j.w}x${j.h} · sisi ${j.sisi} · crop ${c2[2]}x${c2[3]} (rasio ${j.rasio})`+(cropManual?' · MANUAL':' · otomatis')
+      +`\nHasil: facecam 1080x608 · gameplay 1080x992 · branding 1080x320`;
+  }catch(e){$('#infoCrop').textContent='Gagal: '+e.message;}
+}
+$('#tblCropToggle').onclick=()=>{
+  const b=$('#bCropFacecam');
+  const buka=getComputedStyle(b).display==='none';
+  b.style.display=buka?'':'none';
+  $('#tblCropToggle').textContent=buka?'Tutup pengaturan crop':'Atur kotak crop (opsional)';
+  if(buka && !$('#imgPratinjau').src)muatPratinjau();
+};
+for(const id of ['rCropW','rCropX','rCropY']){
+  $('#'+id).oninput=()=>{
+    cropManual=true;
+    $('#nCropW').textContent=$('#rCropW').value;
+    $('#nCropX').textContent=$('#rCropX').value;
+    $('#nCropY').textContent=$('#rCropY').value;
+    clearTimeout(cropTimer); cropTimer=setTimeout(muatPratinjau,350);
+  };
+}
+$('#tblCropRefresh').onclick=muatPratinjau;
+$('#tblCropAuto').onclick=()=>{cropManual=false;muatPratinjau();};
+$('#tblCropReset').onclick=()=>{cropManual=false;$('#rCropW').value=26;$('#rCropX').value=74;$('#rCropY').value=75;
+  $('#nCropW').textContent=26;$('#nCropX').textContent=74;$('#nCropY').textContent=75;muatPratinjau();};
+$('#pilModel').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilModel button').forEach(x=>x.classList.toggle('aktif',x===b));};
+$('#pilBahasaJudul').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilBahasaJudul button').forEach(x=>x.classList.toggle('aktif',x===b));};
 $('#tblFacecam').onclick=()=>$('#pilihFacecam').click();
-$('#pilihFacecam').onchange=async(e)=>{const f=e.target.files[0];if(!f)return;const r=await fetch('/api/unggah',{method:'POST',headers:{'X-Nama-File':f.name,'X-Jenis':'aset'},body:f});const j=await r.json();facecamPath=j.jalur;$('#nFacecam').textContent=f.name;toast('Facecam tersimpan: '+f.name);};
+$('#pilihFacecam').onchange=async(e)=>{
+  const f=e.target.files[0];if(!f)return;
+  const j=await unggahSatu(f,'aset');
+  facecamPath=j.jalur; $('#nFacecam').textContent=f.name;
+  toast('Facecam tersimpan: '+f.name);
+  muatFacecam();
+};
 
 // Muat daftar file sumber (unggahan)
 async function muatSumber(){
@@ -304,19 +1030,19 @@ async function muatSumber(){
     const j=await api('/api/file?jenis=unggahan');
     const el=$('#daftarSumber');
     if(!j.file||!j.file.length){
-      el.innerHTML='<div style="font-size:12px;color:#9aa3ad;margin-top:4px;">Belum ada file sumber di VPS</div>';
+      el.innerHTML='<div style="font-size:16px;color:#9aa3ad;margin-top:4px;">Belum ada file sumber di VPS</div>';
       return;
     }
-    el.innerHTML='<div style="font-size:12px;color:#9aa3ad;margin-bottom:6px;">Pilih sumber video (dari VPS):</div>'+
+    el.innerHTML='<div style="font-size:16px;color:#9aa3ad;margin-bottom:6px;">Pilih sumber video (dari VPS):</div>'+
       j.file.map(f=>{
-        const selected = sumberPath===f.jalur ? ' border:2px solid #f5a524;' : '';
-        return `<div style="display:flex;align-items:center;gap:6px;margin:3px 0;padding:4px 8px;background:#0e1015;border:1px solid #333a44;border-radius:6px;${selected}">
-          <button onclick="pilihSumber('${f.jalur}','${esc(f.nama)}')" class="tombol kedua kecil" style="flex:1;text-align:left;padding:2px 6px;">${f.nama}</button>
-          <span style="font-size:11px;color:#667;white-space:nowrap;">${f.ukuran_txt}</span>
-          <button onclick="hapusFile('unggahan','${esc(f.nama)}')" class="tombol kedua kecil" style="color:#ef6a5f;padding:1px 6px;">×</button>
+        const selected = sumberPath===f.jalur ? ' border:3px solid #f5a524;' : '';
+        return `<div style="display:flex;align-items:center;gap:8px;margin:6px 0;padding:10px 14px;background:#0a0a0a;border:3px solid #2a2f3a;${selected}">
+          <button onclick="pilihSumber('${f.jalur}','${esc(f.nama)}')" class="tombol kedua kecil" style="flex:1;text-align:left;padding:6px 10px;font-size:16px;">${f.nama}</button>
+          <span style="font-size:16px;color:#667;white-space:nowrap;">${f.ukuran_txt}</span>
+          <button onclick="hapusFile('unggahan','${esc(f.nama)}')" class="tombol kedua kecil" style="color:#ef4444;padding:4px 10px;">×</button>
         </div>`;
       }).join('');
-  }catch{el.innerHTML='<div style="font-size:12px;color:#ef6a5f;margin-top:4px;">Gagal memuat daftar file</div>';}
+  }catch{el.innerHTML='<div style="font-size:16px;color:#ef4444;margin-top:4px;">Gagal memuat daftar file</div>';}
 }
 
 async function pilihSumber(jalur,nama){
@@ -333,19 +1059,19 @@ async function muatFacecam(){
     const el=$('#daftarFacecam');
     if(!el) return;
     if(!j.file||!j.file.length){
-      el.innerHTML='<div style="font-size:12px;color:#9aa3ad;margin-top:4px;">Belum ada file facecam di VPS</div>';
+      el.innerHTML='<div style="font-size:16px;color:#9aa3ad;margin-top:4px;">Belum ada file facecam di VPS</div>';
       return;
     }
-    el.innerHTML='<div style="font-size:12px;color:#9aa3ad;margin-bottom:6px;">Pilih facecam (dari VPS):</div>'+
+    el.innerHTML='<div style="font-size:16px;color:#9aa3ad;margin-bottom:6px;">Pilih facecam (dari VPS):</div>'+
       j.file.map(f=>{
-        const selected = facecamPath===f.jalur ? ' border:2px solid #f5a524;' : '';
-        return `<div style="display:flex;align-items:center;gap:6px;margin:3px 0;padding:4px 8px;background:#0e1015;border:1px solid #333a44;border-radius:6px;${selected}">
-          <button onclick="pilihFacecam('${f.jalur}','${esc(f.nama)}')" class="tombol kedua kecil" style="flex:1;text-align:left;padding:2px 6px;">${f.nama}</button>
-          <span style="font-size:11px;color:#667;white-space:nowrap;">${f.ukuran_txt}</span>
-          <button onclick="hapusFile('aset','${esc(f.nama)}')" class="tombol kedua kecil" style="color:#ef6a5f;padding:1px 6px;">×</button>
+        const selected = facecamPath===f.jalur ? ' border:3px solid #f5a524;' : '';
+        return `<div style="display:flex;align-items:center;gap:8px;margin:6px 0;padding:10px 14px;background:#0a0a0a;border:3px solid #2a2f3a;${selected}">
+          <button onclick="pilihFacecam('${f.jalur}','${esc(f.nama)}')" class="tombol kedua kecil" style="flex:1;text-align:left;padding:6px 10px;font-size:16px;">${f.nama}</button>
+          <span style="font-size:16px;color:#667;white-space:nowrap;">${f.ukuran_txt}</span>
+          <button onclick="hapusFile('aset','${esc(f.nama)}')" class="tombol kedua kecil" style="color:#ef4444;padding:4px 10px;">×</button>
         </div>`;
       }).join('');
-  }catch{el.innerHTML='<div style="font-size:12px;color:#ef6a5f;margin-top:4px;">Gagal memuat daftar facecam</div>';}
+  }catch{el.innerHTML='<div style="font-size:16px;color:#ef4444;margin-top:4px;">Gagal memuat daftar facecam</div>';}
 }
 
 async function pilihFacecam(jalur,nama){
@@ -362,27 +1088,147 @@ async function hapusFile(jenis,nama){
     toast('Terhapus: '+nama);
     if(jenis==='unggahan'){ muatSumber(); if(sumberPath&&sumberPath.includes(nama)){sumberPath='';$('#sumber').value='';} }
     if(jenis==='aset'){ muatFacecam(); if(facecamPath&&facecamPath.includes(nama)){facecamPath='';$('#nFacecam').textContent='belum ada';} }
-  }catch(e){toast(e.message,true);}
+  }catch(e){
+    toast(e.message,true);
+    // Daftar tetap disegarkan supaya entri yang sudah tidak ada di disk ikut hilang
+    if(jenis==='unggahan')muatSumber(); else muatFacecam();
+  }
 }
 
 // Muat kedua daftar saat halaman klip dibuka
 async function muatFileUpload(){ await muatSumber(); await muatFacecam(); }
+
 $('#pilMomen').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilMomen button').forEach(x=>x.classList.toggle('aktif',x===b));};
 $('#pilAI').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilAI button').forEach(x=>x.classList.toggle('aktif',x===b));$('#bAITahap').style.display=b.dataset.v==='lokal'?'none':'';};
 $('#pilAITahap').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilAITahap button').forEach(x=>x.classList.toggle('aktif',x===b));};
-$('#tblKlip').onclick=async()=>{const sumber=$('#sumber').value.trim();if(!sumber)return toast('Isi link YouTube atau pilih file video',true);const d={sumber,jumlah:1,durasi:+$('#pilDurasi .aktif').dataset.v,layout:$('#pilLayout .aktif').dataset.v,face_mode:$('#pilFace .aktif').dataset.v,face_x:+$('#gFaceX').value/100,momen:$('#pilMomen .aktif').dataset.v,ai:$('#pilAI .aktif').dataset.v,ai_tahap:$('#pilAI .aktif').dataset.v==='lokal'?'': $('#pilAITahap .aktif').dataset.v};if($('#arahan').value)d.arahan=$('#arahan').value;if(d.layout==='gamer'&&facecamPath)d.facecam=facecamPath;try{const r=await api('/api/klip',d);$('#prosesKlip').style.display='';$('#hasilKlip').style.display='none';$('#lkKlip').textContent='Menganalisis…';$('#batangKlip').style.width='0%';$('#logKlip').textContent='';mulaiPolling();toast('Menganalisis video…');}catch(e){toast(e.message,true);}};
+async function jalankanKlip(render){
+  const sumber=$('#sumber').value.trim();
+  if(!sumber)return toast('Pilih sumber video atau tempel link YouTube',true);
+  const d={
+    render:!!render,
+    sumber,jumlah:+$('#pilJumlah .aktif').dataset.v,durasi:+$('#pilDurasi .aktif').dataset.v,
+    model:$('#pilModel .aktif').dataset.v,
+    bahasa_judul:$('#pilBahasaJudul .aktif').dataset.v,
+    layout:$('#pilLayout .aktif').dataset.v,
+    face_mode:$('#pilFace .aktif').dataset.v,
+    face_x:+$('#gFaceX').value/100,
+    momen:$('#pilMomen .aktif').dataset.v,
+    ai:$('#pilAI .aktif').dataset.v,
+    ai_tahap:$('#pilAI .aktif').dataset.v==='lokal'?'':$('#pilAITahap .aktif').dataset.v
+  };
+  if($('#arahan').value)d.arahan=$('#arahan').value;
+  if(d.layout==='gamer'){
+    d.fc_sisi=$('#pilSisi .aktif').dataset.v;
+    if(cropManual){const c=cropDariSlider();if(c)d.fc_crop=c;}
+    if(facecamPath)d.facecam=facecamPath;
+  }
+  try{
+    const r=await api('/api/klip',d);
+    $('#prosesKlip').style.display='';
+    $('#hasilKlip').style.display='none';
+    $('#lkKlip').textContent='Menganalisis…';
+    $('#batangKlip').style.width='0%';
+    $('#logKlip').textContent='';
+    mulaiPolling();
+    toast(render?'Menganalisis lalu merender…':'Menganalisis video…');
+  }catch(e){toast(e.message,true);};
+}
+$('#tblKlip').onclick=()=>jalankanKlip(false);
+$('#tblKlipRender').onclick=()=>jalankanKlip(true);
 
 // ---- MOTION ----
 $('#pilIsi').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilIsi button').forEach(x=>x.classList.toggle('aktif',x===b));$('#isiTopik').hidden=b.dataset.v!=='topik';$('#isiNaskah').hidden=b.dataset.v!=='naskah';};
 $('#pilGaya').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilGaya button').forEach(x=>x.classList.toggle('aktif',x===b));};
-$('#tblMotion').onclick=async()=>{const topik=$('#topik').value.trim();const naskah=$('#naskahJSON').value.trim();if(!topik&&!naskah)return toast('Isi topik atau tempel naskah JSON',true);const gaya=$('#pilGaya .aktif').dataset.v;try{await api('/api/motion',{topik,naskah:naskah||'',gaya});toast('Membuat video…');}catch(e){toast(e.message,true);}};
+$('#tblMotion').onclick=async()=>{
+  const topik=$('#topik').value.trim();
+  const naskah=$('#naskahJSON').value.trim();
+  if(!topik&&!naskah)return toast('Isi topik atau tempel naskah JSON',true);
+  const gaya=$('#pilGaya .aktif').dataset.v;
+  try{await api('/api/motion',{topik,naskah:naskah||'',gaya});toast('Membuat video…');}catch(e){toast(e.message,true);};
+};
 
 // ---- PENGATURAN ----
-async function muatPengaturan(){try{const j=await api('/api/pengaturan');$$('#pilPenyedia button').forEach(b=>b.classList.toggle('aktif',b.dataset.v===j.pengaturan.AI));$('#GEMINI_API_KEY').value='';$('#GEMINI_API_KEY').placeholder=j.pengaturan.GEMINI_API_KEY?'tersimpan (isi untuk mengganti)':'';$('#OPENROUTER_API_KEY').value='';$('#OPENROUTER_API_KEY').placeholder=j.pengaturan.OPENROUTER_API_KEY?'tersimpan (isi untuk mengganti)':'';tampilKunciAI();}catch{}}
-function tampilKunciAI(){const v=$('#pilPenyedia .aktif').dataset.v;$('#kunciGemini').style.display=v==='gemini'?'':'none';$('#kunciOpenRouter').style.display=v==='openrouter'?'':'none';}
-$('#pilPenyedia').onclick=()=>{setTimeout(tampilKunciAI,0);};
-$('#tblSimpan').onclick=async()=>{try{await api('/api/pengaturan',{AI:$('#pilPenyedia .aktif').dataset.v,GEMINI_API_KEY:$('#GEMINI_API_KEY').value,OPENROUTER_API_KEY:$('#OPENROUTER_API_KEY').value});toast('Disimpan ✓');}catch(e){toast(e.message,true);}};
-$('#tblUji').onclick=async()=>{const b=$('#tblUji');b.disabled=true;b.textContent='Menguji…';try{const r=await api('/api/uji-ai',{penyedia:$('#pilPenyedia .aktif').dataset.v});$('#hasilUji').innerHTML=`<div style="padding:10px;border-radius:8px;font-size:13px;">${r.ok?'✓ Tersambung':'✕ Belum tersambung'} · ${esc(r.pesan)}</div>`;}catch(e){$('#hasilUji').innerHTML=`<div style="padding:10px;border-radius:8px;font-size:13px;color:#ef6a5f;">✕ ${esc(e.message)}</div>`;}b.disabled=false;b.textContent='Uji koneksi';};
+async function muatPengaturan(){
+  try{
+    const j=await api('/api/pengaturan');
+    $$('#pilPenyedia button').forEach(b=>b.classList.toggle('aktif',b.dataset.v===j.pengaturan.AI));
+    hapusKunci=[];
+    $$('button[data-hapus-kunci]').forEach(b=>b.textContent='Hapus');
+    // Isian user JANGAN dikosongkan di sini: sebelumnya value='' menghapus
+    // key yang sudah diketik tapi belum disimpan saat pindah halaman.
+    $('#GEMINI_API_KEY').placeholder=j.pengaturan.GEMINI_API_KEY?'tersimpan (isi untuk mengganti)':'';
+    // OPENROUTER_API_KEY: isian user dibiarkan, jangan dihapus saat pindah halaman.
+    $('#OPENROUTER_API_KEY').placeholder=j.pengaturan.OPENROUTER_API_KEY?'tersimpan (isi untuk mengganti)':'';
+    $('#OPENAI_BASE_URL').value=j.pengaturan.OPENAI_BASE_URL||'';
+    $('#OPENAI_MODEL').value=j.pengaturan.OPENAI_MODEL||'';
+    // OPENAI_API_KEY: isian user dibiarkan, jangan dihapus saat pindah halaman.
+    $('#OPENAI_API_KEY').placeholder=j.pengaturan.OPENAI_API_KEY?'tersimpan (isi untuk mengganti)':'';
+    $$('#pilThinking button').forEach(b=>b.classList.toggle('aktif',b.dataset.v===(j.pengaturan.OPENAI_THINKING||'disabled')));
+    $$('#pilLangganan button').forEach(b=>b.classList.toggle('aktif',b.dataset.v===(j.pengaturan.LANGGANAN||'claude-code')));
+    tampilKunciAI();
+  }catch{}
+}
+function tampilKunciAI(){
+  const v=$('#pilPenyedia .aktif').dataset.v;
+  $('#kunciGemini').style.display=v==='gemini'?'':'none';
+  $('#kunciOpenAI').style.display=v==='openai'?'':'none';
+  $('#kunciOpenRouter').style.display=v==='openrouter'?'':'none';
+  $('#kunciLangganan').style.display=v==='langganan'?'':'none';
+}
+let hapusKunci=[];
+$$('button[data-hapus-kunci]').forEach(b=>{
+  b.onclick=()=>{
+    const k=b.dataset.hapusKunci;
+    const inp=document.getElementById(k);
+    if(inp){inp.value='';inp.placeholder='akan dihapus saat Simpan';}
+    if(!hapusKunci.includes(k))hapusKunci.push(k);
+    b.textContent='✓ akan dihapus';
+  };
+});
+$('#pilPenyedia').onclick=(e)=>{
+  const b=e.target.closest('button.pny');
+  if(!b)return;
+  $$('#pilPenyedia button').forEach(x=>x.classList.toggle('aktif',x===b));
+  tampilKunciAI();
+};
+$('#pilThinking').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilThinking button').forEach(x=>x.classList.toggle('aktif',x===b));};
+$('#pilLangganan').onclick=(e)=>{const b=e.target.closest('button');if(!b)return;$$('#pilLangganan button').forEach(x=>x.classList.toggle('aktif',x===b));};
+$('#tblPasangCli').onclick=async()=>{
+  const b=$('#tblPasangCli');b.disabled=true;b.textContent='Memasang…';
+  try{
+    const r=await api('/api/pasang-cli',{nama:$('#pilLangganan .aktif').dataset.v});
+    toast(r.ok?'CLI dipasang — cek log server':'Gagal memasang');
+  }catch(e){toast(e.message,true);}
+  b.disabled=false;b.textContent='Pasang CLI';
+};
+$('#tblLoginCli').onclick=async()=>{
+  try{
+    const r=await api('/api/login-cli',{nama:$('#pilLangganan .aktif').dataset.v});
+    toast(r.browser?'Login dibuka di browser':'Jalankan perintah login di Terminal yang terbuka');
+  }catch(e){toast(e.message,true);}
+};
+$('#tblSimpan').onclick=async()=>{
+  try{
+    await api('/api/pengaturan',{AI:$('#pilPenyedia .aktif').dataset.v,
+      GEMINI_API_KEY:$('#GEMINI_API_KEY').value||undefined,
+      HAPUS_KUNCI:hapusKunci.slice(),
+      OPENROUTER_API_KEY:$('#OPENROUTER_API_KEY').value,
+      OPENAI_BASE_URL:$('#OPENAI_BASE_URL').value,
+      OPENAI_API_KEY:$('#OPENAI_API_KEY').value,
+      OPENAI_MODEL:$('#OPENAI_MODEL').value,
+      OPENAI_THINKING:$('#pilThinking .aktif').dataset.v,
+      LANGGANAN:$('#pilLangganan .aktif').dataset.v});
+    toast('Disimpan ✓');
+  }catch(e){toast(e.message,true);}
+};
+$('#tblUji').onclick=async()=>{
+  const b=$('#tblUji');b.disabled=true;b.textContent='Menguji…';
+  try{
+    const r=await api('/api/uji-ai',{penyedia:$('#pilPenyedia .aktif').dataset.v});
+    $('#hasilUji').innerHTML=`<div style="padding:12px;border:3px solid ${r.ok?'#22c55e':'#ef4444'};font-size:16px;font-family:'VT323',monospace;">${r.ok?'✓ Tersambung':'✕ Belum tersambung'} · ${esc(r.pesan)}</div>`;
+  }catch(e){$('#hasilUji').innerHTML=`<div style="padding:12px;border:3px solid #ef4444;font-size:16px;font-family:'VT323',monospace;color:#ef4444;">✕ ${esc(e.message)}</div>`;}
+  b.disabled=false;b.textContent='Uji koneksi';
+};
 
 // ---- RIWAYAT ----
 async function muatRiwayat(){
@@ -395,10 +1241,9 @@ async function muatRiwayat(){
       return;
     }
     el.innerHTML=d.filter(p=>!q||p.judul.toLowerCase().includes(q)).map(p=>{
-      const isKlip = p.jenis === 'klip';
       const thumb = p.gambar ? `/berkas/${p.jenis}/${p.nama}/gambar.jpg` : '';
       return `<div class="kartu item" onclick="lihatDetail('${p.jenis}','${esc(p.nama)}')" style="cursor:pointer;">
-        ${thumb ? `<img src="${thumb}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px;">` : ''}
+        ${thumb ? `<img src="${thumb}" style="width:100%;height:140px;object-fit:cover;border:2px solid #000;margin-bottom:8px;">` : ''}
         <div class="jenis">${p.jenis}</div>
         <h4>${esc(p.judul)}</h4>
         <small>${p.nama.replace(/(\\d{4})(\\d\\d)(\\d\\d)-(\\d\\d)(\\d\\d).*/,'$3/$2/$1 $4:$5')} · ${p.jumlah} ${p.jenis==='klip'?'klip':'video'}${p.durasi?' · '+jam(p.durasi):''}${p.ai?' · '+esc(p.ai):''}</small>
@@ -416,25 +1261,43 @@ async function lihatDetail(jenis,nama){
     document.getElementById('detailJudul').textContent = esc(h.judul || nama);
     const info = h.info || {};
     const klip = h.klip || [];
-    let infoHtml = `<strong>Sumber:</strong> ${esc(info.sumber || '-')} · <strong>Durasi:</strong> ${info.durasi ? info.durasi.toFixed(0)+' dtk' : '-'} · <strong>AI:</strong> ${esc(h.ai || '-')}`;
-    document.getElementById('detailInfo').innerHTML = infoHtml;
-    
+    // `h.ai` tidak pernah ada — nilai AI tersimpan di info.json -> h.info.ai.
+    // Sebelumnya selalu tampil "-", seolah AI tidak dipakai.
+    let infoHtml = `<strong>Sumber:</strong> ${esc(info.sumber || '-')} · <strong>Durasi:</strong> ${info.durasi ? info.durasi.toFixed(0)+' dtk' : '-'} · <strong>AI:</strong> ${esc(info.ai || '-')}`;
+    document.getElementById('detailInfo').innerHTML = infoHtml + panelAI(info);
+
     const el = document.getElementById('detailKlip');
     if(!klip.length){
       el.innerHTML = '<div style="padding:20px;text-align:center;color:#9aa3ad;">Belum ada klip yang dirender.</div>';
       return;
     }
-    el.innerHTML = '<div style="font-size:12px;color:#9aa3ad;margin-bottom:10px;">Klik video untuk putar, atau tombol unduh untuk simpan ke laptop.</div>' +
+    const adaKlip=klip.some(k=>k.file);
+    const perluRender=klip.filter(k=>!k.file);
+    let head='<div style="font-size:16px;color:#9aa3ad;margin-bottom:10px;">Klik video untuk putar, atau tombol unduh untuk simpan ke laptop.</div>';
+    if(jenis==='klip'&&perluRender.length){
+      head+=`<div style="margin:10px 0;padding:12px;border:3px solid #f5a524;background:#16140d;font-size:17px;">
+        <b>${perluRender.length} klip belum dirender.</b> Analisis sudah selesai, tinggal render.
+        <button class="tombol utama kecil" onclick="renderSemuaDetail('${jenis}','${nama}',this)" style="margin-top:8px;">Render semua klip</button>
+      </div>`;
+    }
+    el.innerHTML = head +
       klip.map(k=>{
-        const videoUrl = `/berkas/${jenis}/${nama}/${k.file}`;
+        const sudah=!!k.file;
+        const videoUrl=`/berkas/${jenis}/${nama}/${k.file}`;
+        const preview=sudah
+          ? `<video src="${videoUrl}" controls style="width:160px;aspect-ratio:9/16;border:3px solid #000;background:#000;object-fit:cover;image-rendering:pixelated;"></div>`
+          : `<div style="width:160px;aspect-ratio:9/16;border:3px dashed #2a2f3a;background:#050505;display:flex;align-items:center;justify-content:center;text-align:center;color:#667;font-size:15px;padding:8px;box-sizing:border-box;">belum dirender</div>`;
+        const aksi=sudah
+          ? `<button class="tombol kedua kecil" onclick="unduhFile('${jenis}','${nama}','${esc(k.file)}')" style="margin-right:6px;">Unduh</button>
+             <button class="tombol utama kecil" onclick="this.closest('.kartu-klip').querySelector('video').play()">Putar</button>`
+          : `<button class="tombol utama kecil" onclick="renderKlipDetail('${jenis}','${nama}',${k.no},this)" style="margin-right:6px;">Render klip ${k.no}</button>`;
         return `<div class="kartu-klip" style="margin:12px 0;">
-          <video src="${videoUrl}" controls style="width:160px;aspect-ratio:9/16;border-radius:8px;background:#000;object-fit:cover;"></div>
+          ${preview}
           <div style="flex:1;">
             <h4 style="margin:0 0 4px;">${esc(k.judul || 'Klip')}</h4>
-            <div style="font-size:12px;color:#9aa3ad;margin-bottom:6px;">${k.mulai.toFixed(0)}–${k.selesai.toFixed(0)}s · skor ${k.skor}</div>
-            <button class="tombol kedua kecil" onclick="unduhFile('${jenis}','${nama}','${esc(k.file)}')" style="margin-right:6px;">Unduh</button>
-            <button class="tombol utama kecil" onclick="this.parentElement.querySelector('video').play()">Putar</button>
-            <button class="tombol kedua kecil" onclick="hapusProyek('${jenis}','${esc(nama)}')" style="color:#ef6a5f;">Hapus</button>
+            <div style="font-size:16px;color:#9aa3ad;margin-bottom:6px;">${k.mulai.toFixed(0)}–${k.selesai.toFixed(0)}s · skor ${k.skor}</div>
+            ${aksi}
+            <button class="tombol kedua kecil" onclick="hapusProyek('${jenis}','${esc(nama)}')" style="color:#ef4444;">Hapus</button>
           </div>
         </div>`;
       }).join('');
@@ -453,49 +1316,106 @@ async function hapusProyek(jenis,nama){
 }
 
 // ---- BERANDA ----
-async function muatBeranda(){try{const d=await api('/api/proyek');$('#miniProyek').innerHTML=d.length?d.slice(0,4).map(p=>`<div class="kartu item" data-j="${esc(p.jenis)}" data-n="${esc(p.nama)}"><div class="jenis">${p.jenis}</div><h4>${esc(p.judul)}</h4><small>${p.nama.replace(/(\\d{4})(\\d\\d)(\\d\\d)-(\\d\\d)(\\d\\d).*/,'$3/$2/$1 $4:$5')} · ${p.jumlah} ${p.jenis==='klip'?'klip':'video'}</small></div>`).join(''):'<div class="kartu kosong" style="grid-column:1/-1"><b>Belum ada proyek</b>Mulai dari salah satu tombol di atas.</div>';}catch{}}
+async function muatBeranda(){
+  try{
+    const d=await api('/api/proyek');
+    $('#miniProyek').innerHTML=d.length?d.slice(0,4).map(p=>`<div class="kartu item" data-j="${esc(p.jenis)}" data-n="${esc(p.nama)}"><div class="jenis">${p.jenis}</div><h4>${esc(p.judul)}</h4><small>${p.nama.replace(/(\\d{4})(\\d\\d)(\\d\\d)-(\\d\\d)(\\d\\d).*/,'$3/$2/$1 $4:$5')} · ${p.jumlah} ${p.jenis==='klip'?'klip':'video'}</small></div>`).join(''):'<div class="kartu kosong" style="grid-column:1/-1"><b>Belum ada proyek</b>Mulai dari salah satu tombol di atas.</div>';
+  }catch{}
+}
 function jam(d){d=Math.max(0,d);const m=Math.floor(d/60),s=Math.floor(d%60);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}
+
+// Panel status AI: apakah AI ikut andil memilih momen, dan alasannya.
+function panelAI(info){
+  const a=(info&&info.ai_info)||null;
+  const src=(info&&info.ai)||'';
+  if(!a && !src)return '';
+  const pakai=a?!!a.pakai:(src&&src!=='lokal');
+  const warna=pakai?'#22d3ee':'#f5a524';
+  const judul=pakai?'AI IKUT ANDIL memilih momen':'AI TIDAK ikut andil (heuristik lokal)';
+  let baris='';
+  if(a){
+    if(a.penyedia)baris+=`<div>Penyedia: <b>${a.penyedia}</b>${a.model?(' · model <b>'+a.model+'</b>'):''}</div>`;
+    if(a.momen)baris+=`<div>Preset momen: <b>${a.momen}</b></div>`;
+    if(a.tahap)baris+=`<div>Tahap AI: <b>${a.tahap}</b></div>`;
+    if(a.alasan)baris+=`<div style="margin-top:4px">Alasan: ${a.alasan}</div>`;
+    if(a.dari_cache)baris+=`<div style="margin-top:4px;color:#9aa3ad">Catatan: jawaban AI diambil dari cache, bukan panggilan API baru.</div>`;
+  }
+  return `<div class="kartu" style="margin-top:10px;border-color:${warna}">
+    <div style="color:${warna};font-weight:700">◈ ${judul}</div>
+    <div style="margin-top:6px;font-size:15px;line-height:1.5">${baris||'Tidak ada rincian AI tersimpan untuk proyek ini.'}</div>
+  </div>`;
+}
 muatPengaturan();
 muatBeranda();
 muatFileUpload();
 
 // Tombol aksi di beranda (data-ke="klip" / data-ke="motion")
-$$('button[data-ke]').forEach(b=>{b.onclick=()=>{$$('nav button').forEach(x=>x.classList.remove('aktif'));$$('.halaman').forEach(x=>x.classList.remove('aktif'));const target=`h-${b.dataset.ke}`;const el=document.getElementById(target);if(el)el.classList.add('aktif');const nb=document.querySelector(`nav button[data-ke="${b.dataset.ke}"]`);if(nb)nb.classList.add('aktif');if(b.dataset.ke==='riwayat')muatRiwayat();if(b.dataset.ke==='pengaturan')muatPengaturan();if(b.dataset.ke==='beranda')muatBeranda();;}});
+$$('button[data-ke]').forEach(b=>{
+  b.onclick=()=>{
+    $$('nav button').forEach(x=>x.classList.remove('aktif'));
+    $$('.halaman').forEach(x=>x.classList.remove('aktif'));
+    const target=`h-${b.dataset.ke}`;
+    const el=document.getElementById(target);
+    if(el)el.classList.add('aktif');
+    const nb=document.querySelector(`nav button[data-ke="${b.dataset.ke}"]`);
+    if(nb)nb.classList.add('aktif');
+    if(b.dataset.ke==='riwayat')muatRiwayat();
+    if(b.dataset.ke==='pengaturan')muatPengaturan();
+    if(b.dataset.ke==='beranda')muatBeranda();
+  };
+});
 
 // Tombol batalkan proses
-$$('button[data-batal]').forEach(b=>{b.onclick=()=>{document.querySelectorAll('.proses').forEach(p=>p.style.display='none');document.querySelectorAll('.hasil').forEach(h=>h.style.display='none');};});
+$$('button[data-batal]').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.proses').forEach(p=>p.style.display='none');
+    document.querySelectorAll('.hasil').forEach(h=>h.style.display='none');
+  };
+});
 
 // ---- POLING PROGRES ----
 let timerPoll=null;
 async function mulaiPolling(){
   if(timerPoll)clearInterval(timerPoll);
   timerPoll=setInterval(async()=>{
+    // PISAHKAN: kegagalan jaringan vs kegagalan render UI — jangan samakan
+    // bug UI dengan "server mati", itu bikin diagnosis meleset.
+    let s;
     try{
-      const s=await api('/api/status');
+      s=await api('/api/status');
+    }catch(e){
+      clearInterval(timerPoll);
+      timerPoll=null;
+      $('#lkKlip').textContent='Gagal menghubungi server: '+e.message;
+      return;
+    }
+    try{
       $('#lkKlip').textContent=s.status==='jalan'?(s.log[s.log.length-1]||'Sedang diproses…'):(s.status==='selesai'?'Selesai':'Gagal');
       const log=s.log||[];
-      $('#logKlip').textContent=log.join('\n');
+      $('#logKlip').textContent=log.join('\\n');
       $('#logKlip').scrollTop=$('#logKlip').scrollHeight;
       if(s.status==='jalan'){
         const pct=Math.min(95,Math.max(10,(log.length/400)*100));
         $('#batangKlip').style.width=pct+'%';
       } else {
         $('#batangKlip').style.width='100%';
+        $('#barKlip').className = 'bar ' + (s.status==='selesai' ? 'px done' : 'px');
         clearInterval(timerPoll);
         timerPoll=null;
         if(s.status==='selesai'){
           $('#prosesKlip').style.display='none';
           $('#hasilKlip').style.display='';
           let html='<div class="kartu"><b>Selesai</b> ';
+          html+=panelAI(s.hasil && s.hasil.info);
           if(s.hasil && s.hasil.klip && Array.isArray(s.hasil.klip)){
             html+='<div style="margin-top:8px;"><b>Klip yang ditemukan:</b></div>';
             s.hasil.klip.forEach(k=>{
-              html+=`<div style="margin:4px 0;padding:6px;border:1px solid #333a44;border-radius:6px;background:#0e1015;">
+              html+=`<div style="margin:4px 0;padding:10px;border:3px solid #2a2f3a;background:#0a0a0a;">
                 <b>${k.judul}</b> (${k.mulai.toFixed(0)}–${k.selesai.toFixed(0)}s, skor ${k.skor})
                 <button class="tombol kedua kecil" onclick="renderKlip('${s.hasil.nama}',${k.no})" style="margin-left:8px;">Render klip ${k.no}</button>
               </div>`;
             });
-            html+='<div style="margin-top:8px;"><button class="tombol utama" onclick="renderKlipAll(\'${s.hasil.nama}\')">Render semua klip</button></div>';
+            html+='<div style="margin-top:8px;"><button class="tombol utama" onclick="renderKlipAll(\''+s.hasil.nama+'\')">Render semua klip</button></div>';
             html+='<div id="daftarUnduh" style="margin-top:10px;"></div>';
           } else {
             html+='Cek folder hasil di VPS atau unduh berkas klip.</div>';
@@ -506,7 +1426,8 @@ async function mulaiPolling(){
     } catch(e){
       clearInterval(timerPoll);
       timerPoll=null;
-      $('#lkKlip').textContent='Gagal terhubung ke server.';
+      $('#lkKlip').textContent='Kesalahan tampilan: '+e.message;
+      console.error('poll render error', e);
     }
   },2000);
 }
@@ -527,7 +1448,8 @@ async function renderKlip(nama,no){
   const lama=btn.textContent;
   btn.textContent='Merender…'; btn.disabled=true;
   try{
-    await api('/api/klip-render',{nama,pilih:String(no),gaya:{layout:'gamer',facecam:facecamPath||''}});
+    // gaya dikosongkan → server ambil layout/facecam dari permintaan.json (sesuai saat analisis)
+    await api('/api/klip-render',{nama,pilih:[String(no)],gaya:{}});
     toast('Render klip '+no+' selesai');
     muatUnduh(nama);
   }catch(e){toast(e.message,true);}finally{btn.textContent=lama; btn.disabled=false;}
@@ -538,10 +1460,39 @@ async function renderKlipAll(nama){
   const lama=btn.textContent;
   btn.textContent='Merender semua…'; btn.disabled=true;
   try{
-    await api('/api/klip-render',{nama,pilih:'',gaya:{layout:'gamer',facecam:facecamPath||''}});
+    const p=await api(`/api/proyek/klip/${nama}`);
+    const semua=(p.klip||[]).map(k=>String(k.no));
+    if(!semua.length) throw new Error('Tidak ada klip untuk dirender.');
+    await api('/api/klip-render',{nama,pilih:semua,gaya:{}});
     toast('Render semua klip selesai');
     muatUnduh(nama);
   }catch(e){toast(e.message,true);}finally{btn.textContent=lama; btn.disabled=false;}
+}
+
+// Render dari halaman Riwayat (tanpa reanalyze) + polling progres
+async function renderKlipDetail(jenis,nama,no,btn){
+  const lama=btn.textContent;
+  btn.disabled=true; btn.textContent='Merender…';
+  try{
+    await api('/api/klip-render',{nama,pilih:[String(no)],gaya:{}});
+    toast('Render klip '+no+' selesai — memuat ulang…');
+    await new Promise(r=>setTimeout(r,1200));
+    lihatDetail(jenis,nama);
+  }catch(e){toast(e.message,true);btn.disabled=false;btn.textContent=lama;}
+}
+
+async function renderSemuaDetail(jenis,nama,btn){
+  const lama=btn.textContent;
+  btn.disabled=true; btn.textContent='Merender semua…';
+  try{
+    const p=await api(`/api/proyek/${jenis}/${nama}`);
+    const semua=(p.klip||[]).map(k=>String(k.no));
+    if(!semua.length) throw new Error('Tidak ada klip untuk dirender.');
+    await api('/api/klip-render',{nama,pilih:semua,gaya:{}});
+    toast('Render selesai — memuat ulang…');
+    await new Promise(r=>setTimeout(r,1500));
+    lihatDetail(jenis,nama);
+  }catch(e){toast(e.message,true);btn.disabled=false;btn.textContent=lama;}
 }
 
 async function muatUnduh(nama){

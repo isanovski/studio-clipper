@@ -272,6 +272,43 @@ INTERJEKSI = re.compile(r"\b(anjir|gila|parah|wtf|omg|wkwk+w|haha+|lol|nah|ah|si
 EMOSI = re.compile(r"\b(gila|anjir|parah|wtf|omg|no\s?way|insane|goated|brutal|"
                    r"mantap|keren|mampus|nice|clutch|gg|kill|bunuh|mati)\b", re.I)
 
+# ── Kamus gamer berbobot per kategori ──────────────────────────────────────
+# EVENT (kejadian gameplay) bobot tertinggi; NOISE (filler) & META_NARASI
+# (omongan soal bikin video) negatif. Semua pola memakai \b…\b + finditer,
+# jadi kata di tengah kalimat ikut terdeteksi, bukan cuma di awal.
+KAMUS_GAMER: dict[str, tuple[int, "re.Pattern"]] = {
+    "event": (25, re.compile(
+        r"\b(kill|killing|killed|ace|clutch|clutched|penta\s?kill|triple\s?kill|"
+        r"multi\s?kill|team\s?wipe|first\s?blood|killstreak|headshot|1v[1-5]|"
+        r"chicken\s?dinner|knock\s?down|revive|resurrect|menang|winrate|mvp|"
+        r"round|ronde|otw|winning|won|bunuh|mati|mampus|respawn|frag|frags|"
+        r"win|lose|kalah|booyah|savage|rampage|dominating|unstoppable|godlike)\b", re.I)),
+    "reaksi": (14, re.compile(
+        r"\b(gila|anjir|parah|wtf|no\s?way|insane|goated|brutal|gokil|astaga|"
+        r"ampun|mantap|nyesek|serius|seriously|what\s?the|are\s?you\s?serious|"
+        r"how\s?did\s?you|oh\s?my\s?god|omg|holy|jesus|anjay|anjing|bangsat|"
+        r"brengsek|kampret|sial|sialan|woah|whoa|wow|gila\s?bener|gila\s?banget)\b", re.I)),
+    "banter": (12, re.compile(
+        r"\b(gblk|mabar|bocil|meta\s?ciki|jebakan|bait|camping|camper|ez|ezz|ezzz|"
+        r"feed|feeder|feeding|throw|throwing|noob|nob|skill\s?issue|outplay|"
+        r"outplayed|mikro|by\s?one|adu\s?mekanik|kill\s?sampah|imba|diff|nc|tebe|"
+        r"retry|wkwk+|ngakak|lol|troll|trolling|cheese|cheesy|scripted|kidding)\b", re.I)),
+    "strategi": (8, re.compile(
+        r"\b(build|meta|counter|rotation|rotasi|item|skill|cd|cooldown|ult|ulti|"
+        r"buff|nerf|farming|push|tower|base|objective|rotate|all\s?in|setup|"
+        r"loadout|pick|ban|draft|lurk|flank|rush|turtling|combo|trade|positioning|"
+        r"posisi|timing|angle|crosshair|sens|sensitivity|dpi|aim|aiming|recoil|"
+        r"spread|scope)\b", re.I)),
+    "noise": (-8, re.compile(
+        r"\b(eh|ya|iya|oke|ok|jadi|terus|lalu|begini|gitu|nah|sih|dong|deh|kok|"
+        r"aja|doang|cuma|hmm|uhm|um|uh)\b", re.I)),
+    "meta_narasi": (-15, re.compile(
+        r"\b(kita\s?akan|akan\s?buat|bikin\s?video|subscribe|like\s?dulu|intro|"
+        r"konsep\s?video|next\s?video|nanti\s?di|sampai\s?jumpa|"
+        r"jangan\s?lupa\s?subscribe|follow|komen|comment)\b", re.I)),
+}
+
+
 
 def motion_per_detik(path: Path, fps: float = 1.0, sisi: int = 32) -> np.ndarray:
     """Motion per detik (mean absolute difference antar frame) dari video.
@@ -343,7 +380,16 @@ def normalisasi(x: np.ndarray) -> np.ndarray:
 def skor_momen_gamer(kal: list[Kalimat], energi: np.ndarray, lonjak: np.ndarray,
                      reaksi: np.ndarray, aksi: np.ndarray,
                      durasi: float, arahan: str = "") -> list[dict]:
-    """Skor tiap rentang kalimat untuk mode gamer. Semua array sinyal ber-unit per detik."""
+    """Skor tiap rentang kalimat untuk mode gamer.
+
+    Tiga lapis penilaian:
+    1. KATA — kamus berkategori (event/reaksi/banter/strategi) dikurangi noise
+       dan meta-narasi ("kita akan membuat video").
+    2. SINYAL FISIK — teriakan, reaksi wajah, aksi gameplay (bukan dari teks).
+    3. ALIGNMENT BONUS — kejadian gameplay + sinyal fisik di waktu yang sama.
+       Inilah yang membedakan highlight asli dari narasi yang kebetulan keras.
+    Semua array sinyal ber-unit per detik.
+    """
     kata_arahan = {w for w in re.findall(r"\w+", arahan.lower()) if len(w) > 3}
 
     def ambil(sig: np.ndarray, a: float, b: float, mode: str = "max") -> float:
@@ -367,15 +413,22 @@ def skor_momen_gamer(kal: list[Kalimat], energi: np.ndarray, lonjak: np.ndarray,
             if pj < durasi * 0.6:
                 continue
             isi = kal[i:j + 1]
-            kata = [x for s in isi for x in s.kata]
             teks = " ".join(s.teks for s in isi)
-            semua_kata = re.findall(r"\w+", teks.lower())
-
-            hooks = [bersih_kata(x.teks) for x in kata if HOOK_GAME.match(bersih_kata(x.teks))]
-            hooks = list(dict.fromkeys(hooks))
-            inter = INTERJEKSI.findall(teks.lower())
-            emosi = EMOSI.findall(teks.lower())
+            low = teks.lower()
+            semua_kata = re.findall(r"\w+", low)
             padat = len(semua_kata) / max(pj, 1)
+
+            # Skor per kategori: jumlah kecocokan UNIK x bobot kategori
+            kategori: dict[str, set[str]] = {}
+            for nama, (_bobot, pola) in KAMUS_GAMER.items():
+                kategori[nama] = {m.group(0).lower() for m in pola.finditer(low)}
+
+            positif = sum(len(kategori[n]) * KAMUS_GAMER[n][0]
+                          for n in ("event", "reaksi", "banter", "strategi"))
+            # Penalti dibatasi supaya tidak menenggelamkan sinyal positif
+            penalti_noise = min(len(kategori["noise"]) * 8, 30)
+            penalti_meta = min(len(kategori["meta_narasi"]) * 15, 60)
+            skor_kata = positif - penalti_noise - penalti_meta
 
             e_peak = ambil(energi, a, b, "max")
             e_lonjak = ambil(lonjak, a, b, "max")
@@ -383,33 +436,44 @@ def skor_momen_gamer(kal: list[Kalimat], energi: np.ndarray, lonjak: np.ndarray,
             r_aksi = ambil(aksi, a, b, "max")
             pembuka = bool(HOOK_GAME.match(bersih_kata(k.kata[0].teks))) if k.kata else False
 
-            skor = (e_peak * 16          # teriakan / kaget
-                    + e_lonjak * 20       # lonjakan suara mendadak (reaksi)
-                    + r_reaksi * 22       # facecam beriak → ekspresi kuat
-                    + r_aksi * 10        # gameplay sedang rame
-                    + len(hooks) * 9      # kata khas gaming
-                    + len(set(inter)) * 6  # interjeksi: anjir, gila, wkwk
-                    + len(set(emosi)) * 4  # kata emosi
+            # ALIGNMENT BONUS: kejadian gameplay + sinyal fisik di waktu yang sama
+            alignment = 0
+            if kategori["event"]:
+                if e_lonjak > 0.30 or r_reaksi > 0.35:
+                    alignment += 20
+                if r_aksi > 0.50:
+                    alignment += 10
+
+            skor = (skor_kata
+                    + e_peak * 16          # teriakan / kaget
+                    + e_lonjak * 20        # lonjakan suara mendadak
+                    + r_reaksi * 22        # facecam beriak -> ekspresi kuat
+                    + r_aksi * 10          # gameplay sedang rame
+                    + alignment
                     + (12 if pembuka else 0)
-                    - abs(pj - durasi) / durasi * 10)  # durasi jauh dari target
+                    - abs(pj - durasi) / durasi * 10)
             if kata_arahan and kata_arahan & set(semua_kata):
                 skor += 20
 
             alasan = []
+            if kategori["event"]:
+                alasan.append("event: " + ", ".join(sorted(kategori["event"])[:3]))
+            if alignment:
+                alasan.append("event+sinyal sejalan")
             if e_lonjak > 0.35:
                 alasan.append("teriakan")
             if r_reaksi > 0.4:
                 alasan.append("reaksi wajah")
             if r_aksi > 0.5:
                 alasan.append("aksi game")
-            if hooks:
-                alasan.append(f"kata gaming: {', '.join(hooks[:3])}")
-            if inter:
-                alasan.append("teriak/tertawa")
+            if kategori["banter"]:
+                alasan.append("banter")
             if pembuka:
                 alasan.append("pembuka kuat")
             if padat >= 2.6:
                 alasan.append("bicara padat")
+            if kategori["meta_narasi"]:
+                alasan.append("ada narasi meta")
             if kata_arahan and kata_arahan & set(semua_kata):
                 alasan.append("sesuai arahan")
 
@@ -420,10 +484,12 @@ def skor_momen_gamer(kal: list[Kalimat], energi: np.ndarray, lonjak: np.ndarray,
                 "sinyal": {
                     "energi": round(e_peak, 3), "lonjakan": round(e_lonjak, 3),
                     "reaksi": round(r_reaksi, 3), "aksi": round(r_aksi, 3),
-                    "hooks": hooks[:6], "interjeksi": list(dict.fromkeys(inter))[:6],
+                    "alignment": alignment,
+                    "kategori": {n: sorted(v)[:6] for n, v in kategori.items() if v},
                 },
             })
     return hasil
+
 
 
 def kalimat_utuh(kal: list[Kalimat]) -> list[Kalimat]:
@@ -491,13 +557,56 @@ KATA_STOP = {
 }
 
 
+def ringkas_sinyal_untuk_ai(sinyal: dict | None, durasi_video: float,
+                            window: int = 30, top: int = 12) -> str:
+    """Ringkas sinyal fisik per window untuk prompt AI.
+
+    LLM hanya melihat teks, jadi teriakan/reaksi wajah/aksi gameplay tidak
+    pernah diketahui kalau tidak dikirim. Fungsi ini mengambil 12 window
+    dengan sinyal terkuat supaya AI bisa memilih momen di sekitar puncaknya,
+    bukan hanya dari kata-kata.
+    """
+    if not sinyal:
+        return ""
+    lonjak = sinyal.get("lonjak")
+    if lonjak is None or len(lonjak) == 0:
+        return ""
+    reaksi = sinyal.get("reaksi")
+    aksi = sinyal.get("aksi")
+
+    def mx(sig, a, b):
+        if sig is None or len(sig) == 0:
+            return 0.0
+        i0, i1 = min(a, len(sig) - 1), min(b, len(sig))
+        if i1 <= i0:
+            return 0.0
+        return float(sig[i0:i1].max())
+
+    rows = []
+    n = int(durasi_video)
+    for a in range(0, max(n, 1), window):
+        b = min(a + window, n)
+        l, r, ak = mx(lonjak, a, b), mx(reaksi, a, b), mx(aksi, a, b)
+        rows.append((l + r * 1.2 + ak * 0.6, a, b, l, r, ak))
+    rows.sort(reverse=True)
+    # Buang window tanpa sinyal: deretan nol di prompt hanya menambah noise
+    # dan membuat AI menganggap bagian akhir video penting padahal datar.
+    rows = [row for row in rows if row[0] > 0.05]
+    terpilih = sorted(rows[:top], key=lambda x: x[1])
+    return "\n".join(f"  {a}-{b}s: lonjak={l:.2f} reaksi={r:.2f} aksi={ak:.2f}"
+                     for _s, a, b, l, r, ak in terpilih)
+
+
 def ai_pilih_momen_utama(kal: list[Kalimat], durasi: float, jumlah: int,
                          arahan: str = "", penyedia: str = "",
-                         cache: Path | None = None) -> list[Klip] | None:
+                         cache: Path | None = None, mode: str = "umum",
+                         sinyal: dict | None = None) -> list[Klip] | None:
     """AI utama pilih momen terbaik dari semua teks Whisper.
 
     Kirim semua kalimat dengan timestamp ke AI. AI memilih jumlah momen
     yang paling menarik, tidak tumpang tindih, dan bisa berdiri sendiri.
+    mode="gamer" menambahkan prompt khusus gaming + ringkasan sinyal fisik
+    (teriakan/reaksi wajah/aksi gameplay) yang tidak terlihat dari teks.
     Return None jika AI gagal (caller pakai fallback lokal).
     """
     if not kal or not penyedia:
@@ -508,9 +617,67 @@ def ai_pilih_momen_utama(kal: list[Kalimat], durasi: float, jumlah: int,
     for k in kal:
         segment.append(f"[{k.mulai:.0f}s - {k.selesai:.0f}s] {k.teks}")
 
-    teks_gabungan = "\n".join(segment[:300])  # batasi agar prompt tidak terlalu panjang
+    # Kirim seluruh transkrip (bukan cuma 300 segmen) — model free/berbayar
+    # modern punya context >= 128K, sedangkan 300 segmen cuma menutup ~60%
+    # video 31 menit sehingga momen bagus di paruh akhir tidak pernah dilihat AI.
+    # Batas tetap ada supaya video 2 jam tidak meledakkan prompt.
+    teks_gabungan = "\n".join(segment[:1200])
 
     arahan_str = f"\nArahan pengguna: {arahan}" if arahan else ""
+
+    if mode == "gamer":
+        sinyal_txt = ringkas_sinyal_untuk_ai(sinyal, kal[-1].selesai if kal else 0)
+        prompt = f"""Anda adalah editor video GAMING untuk TikTok/Reels/Shorts.
+
+Berikut transkrip lengkap video gameplay dengan timestamp (detik):
+{teks_gabungan}
+
+SINYAL FISIK (dari audio & video, BUKAN teks — bukti gaming yang tidak terlihat dari kata-kata):
+- lonjak: lonjakan volume suara vs baseline (teriakan/kaget)
+- reaksi: intensitas gerakan wajah di facecam (ekspresi kuat)
+- aksi: intensitas gerakan di gameplay (sedang rame)
+WAKTU DENGAN SINYAL TERKUAT:
+{sinyal_txt}
+
+Pilih {jumlah} momen terbaik untuk klip pendek, masing-masing sekitar {durasi} detik.
+
+Kriteria wajib:
+1. ADALAH MOMEN GAMING: ada kejadian gameplay (kill, clutch, ace, win, round, mati, menang)
+   ATAU reaksi emosi/kaget/banter yang genuine menarik.
+2. SKOR RENDAH untuk transkrip yang berisi narasi/meta tentang membuat video
+   ("kita akan membuat video", "subscribe", "intro", "konsep video", "next video").
+3. ALIGNMENT: prioritaskan momen di mana ADA KEJADIAN (kata event gameplay)
+   DAN sinyal fisik kuat (lonjak>0.3 ATAU reaksi>0.35 ATAU aksi>0.5) di waktu yang sama.
+4. 2-DETIK TEST: 2 detik pertama harus membuat penonton baru ingin terus nonton.
+5. STANDS ALONE: hindari awalan "ini", "itu", "ya", "nah".
+6. Tidak tumpang tindih waktu.
+7. Bawa judul singkat dan alasan singkat ({instruksi_bahasa()}).{arahan_str}
+
+Output HANYA JSON valid, tanpa prose, tanpa markdown fence:
+[
+  {{"mulai": 120.5, "selesai": 180.5, "judul": "...", "alasan": "..."}},
+  ...
+]
+"""
+        hasil = ai_json(penyedia, prompt, cache)
+        if not hasil:
+            return None
+        data = hasil if isinstance(hasil, list) else hasil.get("momen", [])
+        if not isinstance(data, list) or not data:
+            return None
+        klips: list[Klip] = []
+        for item in data[:jumlah]:
+            try:
+                klips.append(Klip(
+                    round(float(item["mulai"]), 2),
+                    round(float(item["selesai"]), 2),
+                    str(item.get("judul", f"Klip {item['mulai']:.0f}s")).strip(),
+                    80,
+                    str(item.get("alasan", "pilihan AI"))
+                ))
+            except (KeyError, TypeError, ValueError):
+                continue
+        return klips or None
 
     prompt = f"""Anda adalah editor video pendek (TikTok/Reels/Shorts) senior.
 
@@ -747,8 +914,22 @@ def tanya_ai(penyedia: str, prompt: str) -> str:
     if penyedia == "openai":
         import urllib.request
         url = env.get("OPENAI_BASE_URL", "http://localhost:11434/v1").rstrip("/") + "/chat/completions"
-        data = json.dumps({"model": env.get("OPENAI_MODEL", "gemma3:4b"),
-                           "messages": [{"role": "user", "content": prompt}]}).encode()
+        muatan = {"model": env.get("OPENAI_MODEL", "gemma3:4b"),
+                  "messages": [{"role": "user", "content": prompt}]}
+        # Thinking mode: DeepSeek reasoning-mode membakar seluruh max_tokens untuk
+        # chain-of-thought sehingga content jadi kosong. Matikan lewat
+        # OPENAI_THINKING=disabled (resmi: {"thinking":{"type":"disabled"}}).
+        ift = (env.get("OPENAI_THINKING") or "").strip().lower()
+        if ift in ("disabled", "enabled"):
+            muatan["thinking"] = {"type": ift}
+        # Parameter tambahan opsional (JSON) untuk provider OpenAI-compatible lain
+        extra = (env.get("OPENAI_EXTRA") or "").strip()
+        if extra:
+            try:
+                muatan.update(json.loads(extra))
+            except json.JSONDecodeError:
+                log("   OPENAI_EXTRA bukan JSON valid → diabaikan.")
+        data = json.dumps(muatan).encode()
         req = urllib.request.Request(url, data=data, headers={
             "Content-Type": "application/json", "Authorization": f"Bearer {env.get('OPENAI_API_KEY', 'ollama')}"})
         with urllib.request.urlopen(req, timeout=600) as resp:
@@ -867,6 +1048,8 @@ def ai_siap(penyedia: str, g: dict) -> bool:
         return bool(env.get("OPENROUTER_API_KEY") or env.get("OPENAI_API_KEY"))
     if penyedia == "gemini":
         return bool(env.get("GEMINI_API_KEY"))
+    if penyedia == "openai":
+        return bool(env.get("OPENAI_API_KEY"))
     return True
 
 
@@ -903,10 +1086,28 @@ def tanya_openrouter(prompt: str, env: dict) -> str:
     raise RuntimeError(f"semua model OpenRouter gagal → {galat}")
 
 
+# Status AI untuk ditampilkan di web UI: apakah AI benar-benar ikut memilih
+# momen, atau hasilnya murni heuristik lokal. Diisi oleh ai_json().
+AI_STATUS: dict = {"pakai": False, "penyedia": "", "model": "", "alasan": "", "dari_cache": False}
+
+
+def _ai_catat(pakai: bool, alasan: str, dari_cache: bool = False) -> None:
+    AI_STATUS.update({"pakai": pakai, "alasan": alasan, "dari_cache": dari_cache})
+
+
 def ai_json(penyedia: str, prompt: str, cache: Path | None = None) -> dict | None:
     """Panggil AI → JSON. Gagal = None (pipeline lanjut dengan fallback lokal), tidak fatal."""
+    AI_STATUS["penyedia"] = penyedia
+    try:
+        env = baca_env()
+        AI_STATUS["model"] = (env.get("OPENROUTER_MODELS", "").split(",")[0] if penyedia == "openrouter"
+                              else env.get("OPENAI_MODEL", "") if penyedia == "openai"
+                              else env.get("GEMINI_MODEL", "") if penyedia == "gemini" else penyedia)
+    except Exception:  # noqa: BLE001
+        AI_STATUS["model"] = ""
     if cache and cache.exists():
         try:
+            _ai_catat(True, "Jawaban AI diambil dari cache analisis sebelumnya (tidak memanggil API lagi).", True)
             return json.loads(cache.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             pass
@@ -917,19 +1118,24 @@ def ai_json(penyedia: str, prompt: str, cache: Path | None = None) -> dict | Non
             teks = tanya_ai(penyedia, prompt)
     except SystemExit as e:
         log(f"   AI berhenti: {str(e)[:140]}")
+        _ai_catat(False, f"AI tidak bisa dipakai: {str(e)[:180]}")
         return None
     except Exception as e:  # noqa: BLE001
         log(f"   AI gagal: {type(e).__name__}: {str(e)[:140]}")
+        _ai_catat(False, f"Panggilan AI gagal ({type(e).__name__}): {str(e)[:180]}")
         return None
     m = re.search(r"\[.*\]|\{.*\}", teks, re.S)
     if not m:
         log("   AI tidak mengembalikan JSON → pakai fallback lokal.")
+        _ai_catat(False, "AI menjawab tetapi bukan JSON, jadi momen dipilih heuristik lokal.")
         return None
     try:
         hasil = json.loads(m.group(0))
     except json.JSONDecodeError:
         log("   JSON AI tidak valid → pakai fallback lokal.")
+        _ai_catat(False, "JSON dari AI tidak valid, jadi momen dipilih heuristik lokal.")
         return None
+    _ai_catat(True, "AI membaca transkrip Whisper dan memilih momen (jawaban JSON valid).")
     if cache:
         try:
             cache.parent.mkdir(parents=True, exist_ok=True)
@@ -1111,7 +1317,7 @@ def ai_metadata(klips: list[Klip], penyedia: str, cache: Path | None = None) -> 
 
 Aturan:
 - Return only valid JSON, no prose, no markdown fence.
-- SEMUA teks (hook, judul, caption) HARUS dalam Bahasa Indonesia.
+- SEMUA teks (hook, judul, caption) HARUS dalam {instruksi_bahasa()}.
 - `hook`: maksimal 10 kata, punchy, TENTANG MOMEN INI (bukan tentang video secara umum). Contoh pola: pertanyaan, hot take, fakta/angka, loop cerita, POV. Boleh 1-2 emoji.
 - `judul_yt`: maksimal 100 karakter, bikin penasaran, jangan klaim palsu.
 - `caption_ig` / `caption_tiktok`: 1-2 kalimat tease tanpa spoiler + 3-5 hashtag yang relevan (jangan spam hashtag generik).
@@ -1142,7 +1348,7 @@ Return only:
 def ai_pilih_layout(transkrip_ringkas: str, sinyal: dict, penyedia: str, cache: Path | None = None) -> str:
     """Saran layout dari isi + sinyal (bukan facecam 2-kamera; itu khusus gaming)."""
     hasil = ai_json(penyedia, f"""Pilih satu layout untukklip video ini.
-Pilihan: "tunggal" (satu pembicara, crop 9:16 mengikuti wajah) · "facecam" (wajah besar di atas, isi layar di bawah) · "pip" (wajah kecil di pojok).
+Pilihan: "tunggal" (satu pembicara, crop 9:16 mengikuti wajah) · "gamer" (wajah atas + gameplay bawah + branding).
 Return only valid JSON, no prose: {{"layout":"tunggal","reason":"<short>"}}
 
 RINGKASAN TRANSKRIP:
@@ -1561,6 +1767,42 @@ PRESET = {
     "sobek":   dict(font="Archivo Black", tebal=0, huruf="kapital", per=3, uk=74, warna="#FF4FA3", mode="warna", tepi=6, bayang=2,
                     judul="sobek"),
 }
+# ── Gaya banner pembuka (5 detik pertama) ──────────────────────────────────
+# Setiap klip mendapat gaya BERBEDA (dipilih acak berdasar waktu mulai klip).
+# Semua memakai BorderStyle=3 = kotak opaque di belakang teks, bukan teks polos.
+# Bahasa untuk judul/banner yang dihasilkan AI. Diatur lewat --bahasa-judul.
+BAHASA_JUDUL = "id"
+
+
+def instruksi_bahasa() -> str:
+    return "Bahasa Indonesia" if BAHASA_JUDUL == "id" else "English"
+
+
+GAYA_BANNER = [
+    dict(nama="kotak-kuning", font="Archivo Black", ukuran=64, warna="#0B0C0F", kotak="#FFD400", bayang=0, kapital=True),
+    dict(nama="kotak-cyan", font="Space Grotesk", ukuran=62, warna="#050505", kotak="#22D3EE", bayang=0, kapital=True),
+    dict(nama="kotak-hitam", font="Montserrat ExtraBold", ukuran=62, warna="#FFFFFF", kotak="#0B0C0F", bayang=4, kapital=True),
+    dict(nama="neon-pink", font="Bangers", ukuran=88, warna="#FF4FA3", kotak="#111111", bayang=6, kapital=True),
+    dict(nama="kotak-lime", font="Anton", ukuran=72, warna="#0B0C0F", kotak="#C6FF3D", bayang=0, kapital=True),
+    dict(nama="kotak-ungu", font="Space Grotesk", ukuran=64, warna="#FFFFFF", kotak="#7C3AED", bayang=0, kapital=True),
+    dict(nama="kotak-oranye", font="Archivo Black", ukuran=66, warna="#0B0C0F", kotak="#FF7A1A", bayang=0, kapital=True),
+    dict(nama="kotak-putih", font="Montserrat ExtraBold", ukuran=60, warna="#111111", kotak="#FFFFFF", bayang=0, kapital=True),
+    dict(nama="kotak-merah", font="Anton", ukuran=70, warna="#FFFFFF", kotak="#E11D48", bayang=0, kapital=True),
+    dict(nama="kotak-biru", font="Space Grotesk", ukuran=64, warna="#FFFFFF", kotak="#1D4ED8", bayang=0, kapital=True),
+]
+
+
+def pilih_gaya_banner(klip) -> dict:
+    """Pilih gaya banner secara deterministik per klip (bukan acak global).
+
+    Seeded dari waktu mulai supaya setiap klip dalam satu video mendapat gaya
+    berbeda, tetapi hasilnya tetap sama bila klip itu dirender ulang.
+    """
+    import random
+    benih = int(round(float(klip.mulai) * 100)) ^ len(klip.judul or "")
+    return random.Random(benih).choice(GAYA_BANNER)
+
+
 GAYA_JUDUL = ("kuning", "neon", "serif", "kotak", "sobek")  # gaya judul di atas (tahan sampai akhir klip)
 ANIM_DIR = Path(__file__).resolve().parent / "anim"  # hiasan animasi transparan (WebP 540×960, 30 fps) dari Remotion
 LAMA = {"sorot": "sorot", "kotak": "terbaca", "garis": "minimal"}  # gaya_sub versi lama → preset
@@ -1695,10 +1937,23 @@ def tulis_ass(kal: list[Kalimat], klip: Klip, out: Path, g: dict, bar_atas: int)
     banner_v = max(70, bar_atas // 2 - 70) if bar_atas > 160 else 150
     bw = warna_ass(c.get("banner_warna", "#FFFFFF"))
     fb, tb = (c["font_aktif"], 1) if c.get("font_aktif") else (font, c["tebal"])  # banner selalu tebal
-    if c.get("banner_kotak"):
-        banner = f"Style: Banner,{fb},{int(uk * 0.72)},{bw},{bw},{c['banner_kotak']},{c['banner_kotak']},{tb},0,0,0,100,100,0,0,3,18,0,8,80,80,{banner_v},1"
+    # banner_tengah=True -> ASS alignment 5 (tepat tengah frame), MarginV 0.
+    # Default lama: alignment 8 (tengah atas) dengan margin banner_v.
+    b_tengah = bool(g.get("banner_tengah"))
+    b_align = 5 if b_tengah else 8
+    b_margin = 0 if b_tengah else banner_v
+    gb = g.get("_gaya_banner_obj")
+    if gb:
+        # Gaya banner pilihan: teks berwarna di atas KOTAK opaque (BorderStyle=3).
+        # PrimaryColour = warna teks, OutlineColour = warna kotak.
+        banner = (f"Style: Banner,{gb['font']},{gb['ukuran']},"
+                  f"{warna_ass(gb['warna'])},{warna_ass(gb['warna'])},"
+                  f"{warna_ass(gb['kotak'])},{warna_ass(gb['kotak'])},"
+                  f"0,0,0,0,100,100,0,0,3,18,{gb.get('bayang', 0)},{b_align},80,80,{b_margin},1")
+    elif c.get("banner_kotak"):
+        banner = f"Style: Banner,{fb},{int(uk * 0.72)},{bw},{bw},{c['banner_kotak']},{c['banner_kotak']},{tb},0,0,0,100,100,0,0,3,18,0,{b_align},80,80,{b_margin},1"
     else:
-        banner = f"Style: Banner,{fb},{max(int(uk * 0.85), 54)},{bw},{bw},&H00000000,&H00000000,{tb},0,0,0,100,100,0,0,1,5,0,8,80,80,{banner_v},1"
+        banner = f"Style: Banner,{fb},{max(int(uk * 0.85), 54)},{bw},{bw},&H00000000,&H00000000,{tb},0,0,0,100,100,0,0,1,5,0,{b_align},80,80,{b_margin},1"
     judul_style = (f"Style: Judul,{fb},54,&H000D0705,&H000D0705,{warna_ass('#FFD400')},{warna_ass('#FFD400')},1,0,0,0,100,100,0,0,3,"
                    f"20,0,8,110,110,{int(1920 * 0.14)},1")
     judul_style += (
@@ -1732,7 +1987,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     bersih = lambda t: t.replace("{", "").replace("}", "")  # noqa: E731
     if g.get("banner", True) and klip.judul:
         teks = bersih(f"{g.get('awalan', '')}{klip.judul}{g.get('akhiran', '')}")
-        baris.append(f"Dialogue: 1,{waktu_ass(0)},{waktu_ass(b - a)},Banner,,0,0,0,,{ubah_huruf(teks, 'kapital')}")
+        # banner_durasi > 0 -> banner hanya tampil N detik pertama (mis. 5 dtk)
+        b_dur = float(g.get("banner_durasi", 0) or 0)
+        b_akhir = min(b_dur, b - a) if b_dur > 0 else (b - a)
+        gb2 = g.get("_gaya_banner_obj") or {}
+        baris.append(f"Dialogue: 1,{waktu_ass(0)},{waktu_ass(b_akhir)},Banner,,0,0,0,,"
+                     f"{ubah_huruf(teks, 'kapital' if gb2.get('kapital', True) else 'biasa')}")
     elif g.get("judul_buka", True) and klip.judul:  # judul pembuka 3 dtk (bila banner tidak dipakai)
         teks = bersih(tanpa_emoji(klip.judul))
         baris.append(baris_judul(teks, c, b - a))
@@ -1946,11 +2206,167 @@ RASIO = {"9:16": 9 / 16, "1:1": 1.0, "4:3": 4 / 3, "16:9": 16 / 9}
 FOKUS = {"kiri": 0.35, "tengah": 0.5, "kanan": 0.65}
 
 
+def _pip_dari_bingkai(fr, sisi: str, model: Path) -> tuple[list[int], dict] | None:
+    """Kotak PiP 16:9 yang PERSIS di dalam bingkai PiP, dari satu frame.
+
+    Dipandu kotak wajah: gradien Sobel hanya diukur pada pita yang dilalui
+    wajah, sehingga tepi konten gameplay tidak ikut terpilih. PiP pojok
+    menempel pada 2 tepi gambar, jadi hanya 2 tepi dalam yang perlu dicari:
+      sisi kanan -> tepi KIRI + ATAS ; sisi kiri -> tepi KANAN + ATAS.
+    """
+    import cv2
+    import numpy as np
+
+    h, w = fr.shape[:2]
+    sk = 640 / w
+    kecil = cv2.resize(fr, (640, max(2, int(h * sk))))
+    det = cv2.FaceDetectorYN.create(str(model), "", (kecil.shape[1], kecil.shape[0]), 0.6, 0.3, 50)
+    _, ws = det.detect(kecil)
+    if ws is None or not len(ws):
+        return None
+    b = max(ws, key=lambda a: a[2] * a[3])
+    fx, fy, fw, fh = (float(v) / sk for v in b[:4])
+    f = {"x": fx, "y": fy, "w": fw, "h": fh, "cx": fx + fw / 2, "cy": fy + fh / 2}
+
+    abu = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
+    gx = np.abs(cv2.Sobel(abu, cv2.CV_32F, 1, 0, ksize=3))
+    gy = np.abs(cv2.Sobel(abu, cv2.CV_32F, 0, 1, ksize=3))
+    y0, y1 = int(fy), int(fy + fh)
+    x0, x1 = int(fx), int(fx + fw)
+    if y1 - y0 < 4 or x1 - x0 < 4:
+        return None
+
+    # Tepi ATAS: pita horizontal sejajar wajah, cari ke atas dari wajah
+    prof_atas = np.convolve(gy[:, x0:x1].mean(axis=1), np.ones(5) / 5, mode="same")
+    ymin = max(0, int(fy - 2 * fh))
+    kan = prof_atas[ymin:y0]
+    atas = ymin + int(np.argmax(kan)) if len(kan) else max(0, int(fy - fh))
+
+    # Tepi DALAM: pita vertikal sejajar wajah
+    prof_sisi = np.convolve(gx[y0:y1, :].mean(axis=0), np.ones(5) / 5, mode="same")
+    if sisi == "kanan":
+        xmin = max(0, int(fx - 3 * fw))
+        kan = prof_sisi[xmin:x0]
+        dalam = xmin + int(np.argmax(kan)) if len(kan) else int(fx - fw)
+        pip = [dalam, atas, w - dalam, h - atas]
+    else:
+        xmax = min(w, int(fx + fw + 3 * fw))
+        kan = prof_sisi[x1:xmax]
+        dalam = x1 + int(np.argmax(kan)) if len(kan) else int(fx + 2 * fw)
+        pip = [0, atas, dalam, h - atas]
+
+    px, py, pw, ph = pip
+    if pw < 40 or ph < 30:
+        return None
+
+    # Kotak 16:9 DI DALAM PiP (nol bleed), dipusatkan pada wajah
+    cw = float(pw)
+    ch = cw * 9 / 16
+    if ch > ph:
+        ch = float(ph)
+        cw = ch * 16 / 9
+    x = max(px, min(f["cx"] - cw / 2, px + pw - cw))
+    y = max(py, min(f["cy"] - ch / 2, py + ph - ch))
+    return [int(round(x)), int(round(y)), int(round(cw)), int(round(ch))], f
+
+
+def deteksi_kotak_pip(file: Path, a: float, b: float, sisi: str) -> list[int] | None:
+    """Kotak crop PiP presisi [x, y, lebar, tinggi] dalam piksel sumber.
+
+    Menggantikan tebakan proporsional (`kotak_facecam`) yang selalu kebesaran
+    dan menyeret gameplay ke dalam band facecam. Sampel 3 frame, ambil median
+    per komponen supaya tahan outlier. None kalau wajah tidak ketemu.
+    """
+    import cv2
+
+    model = Path(__file__).resolve().parent / "model" / "face_detection_yunet_2023mar.onnx"
+    if not model.exists() or not hasattr(cv2, "FaceDetectorYN"):
+        return None
+    cap = cv2.VideoCapture(str(file))
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    if not w or not h:
+        cap.release()
+        return None
+    hasil = []
+    for t in (a + (b - a) * 0.25, a + (b - a) * 0.5, a + (b - a) * 0.75):
+        cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000)
+        ok, fr = cap.read()
+        if not ok:
+            continue
+        r = _pip_dari_bingkai(fr, sisi, model)
+        if r:
+            hasil.append(r[0])
+    cap.release()
+    if not hasil:
+        return None
+    return [int(sorted(c)[len(c) // 2]) for c in zip(*hasil)]
+
+
+def deteksi_sisi_facecam(kunci: list[tuple[float, float]], ambang: float = 0.5) -> str:
+    """Tentukan sisi PiP facecam dari jejak wajah.
+
+    Jejak wajah = daftar (detik, posisi-x 0..1) wajah pembicara aktif.
+    PiP di pojok KANAN -> wajah Ada di kanan (x > 0.5); pojok KIRI -> x < 0.5.
+    Pakai median, bukan rata-rata, supaya satu frame outlier tidak mengubah
+    keputusan.
+    """
+    xs = sorted(float(x) for _, x in kunci if x is not None)
+    if not xs:
+        return "kanan"
+    return "kanan" if xs[len(xs) // 2] >= ambang else "kiri"
+
+
+def kotak_facecam(w: int, h: int, sisi: str, preset: float = 0.26,
+                  x_wajah: float | None = None) -> tuple[int, int, int, int]:
+    """Kotak crop PiP facecam di file sumber (rasio 16:9), pojok bawah.
+
+    Lebar = `preset` × lebar sumber (default 26%). Kotak di-anchor ke pojok
+    sesuai `sisi`. Kalau posisi-x wajah hasil deteksi diketahui, kotak digeser
+    60% ke arah wajah (40% tetap di pojok) supaya wajah tidak keluar dari frame.
+    """
+    cw = max(64, int(w * preset) // 2 * 2)
+    ch = max(36, int(round(cw * 9 / 16)) // 2 * 2)
+    if ch > h:
+        ch = h // 2 * 2
+        cw = max(64, int(round(ch * 16 / 9)) // 2 * 2)
+    x = 0 if sisi == "kiri" else w - cw
+    # Koreksi posisi HANYA kalau wajah terdeteksi di sisi yang sama dengan PiP.
+    # x_wajah ~ 0.5 = deteksi gagal/netral -> JANGAN dipakai, karena akan menarik
+    # kotak ke tengah dan keluar dari PiP. Geseran juga dibatasi 25% lebar sumber
+    # supaya kotak tidak pernah kabur jauh dari pojok.
+    if x_wajah is not None:
+        cocok = (sisi == "kanan" and x_wajah > 0.55) or (sisi == "kiri" and x_wajah < 0.45)
+        if cocok:
+            baru = int(float(x_wajah) * w) - cw // 2
+            baru = max(0, min(baru, w - cw))
+            batas = int(w * 0.25)
+            x = max(x - batas, min(int((x * 0.4 + baru * 0.6) // 2 * 2), x + batas))
+            x = max(0, min(x, w - cw))
+    return cw, ch, x, h - ch
+
+
+def cari_berkas_branding(g: dict) -> Path | None:
+    """Berkas gambar bar branding gamer (idealnya 1080x320).
+
+    Urutan: gaya render -> aset user (~/Isanovski Studio/aset/branding.png)
+    -> bawaan repo (klip/aset/branding.png). Gambar dipakai UTUH, ruang kosong
+    di dalamnya dibiarkan supaya owner bisa isi sendiri.
+    """
+    for nilai in (g.get("branding"), g.get("logo")):
+        if nilai and Path(nilai).is_file():
+            return Path(nilai)
+    for p in (Path.home() / "Isanovski Studio" / "aset" / "branding.png",
+              Path(__file__).resolve().parent / "aset" / "branding.png"):
+        if p.is_file():
+            return p
+    return None
+
+
 def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w: int, h: int, g: dict) -> None:
     rasio = g.get("rasio", "9:16")
     layout = g.get("layout", "tunggal")
     fokus = g.get("fokus", "auto")
-    wajah = info_wajah(file, klip.mulai, klip.selesai, w, h) if layout in ("facecam", "pip") else None
     dua = dua_wajah(file, klip.mulai, klip.selesai, w, h) if layout == "split" else None
     if layout == "split" and not dua:
         log("   Split Podcast: hanya satu orang terlihat → bingkai tunggal")
@@ -1971,66 +2387,126 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
             graf.append(f"[{'va' if lbl == 'atas' else 'vb'}]{potong(w, h, 1080 / 958, p['x'], p['y'], zoom)},"
                         f"scale=1080:958:flags=lanczos,setsar=1[{lbl}]")
         graf.append("color=c=0x111111:s=1080x4:d=1[gp];[atas][gp][bawah]vstack=inputs=3[vid]")
-    elif layout == "facecam" and wajah:
-        # atas 40%: wajah diperbesar · bawah 60%: isi layar (gameplay/presentasi)
-        zoom = min(max(wajah["s"] * 3.2, 0.25), 1.0)
-        graf.append(f"[0:v]split=2[va][vb]")
-        graf.append(f"[va]{potong(w, h, 1080 / 768, wajah['x'], wajah['y'], zoom)},scale=1080:768,setsar=1[atas]")
-        graf.append(f"[vb]{potong(w, h, 1080 / 1152, 0.5, 0.5)},scale=1080:1152,setsar=1[bawah]")
-        graf.append("[atas][bawah]vstack=inputs=2[vid]")
-    elif layout == "pip" and wajah:
-        zoom = min(max(wajah["s"] * 2.4, 0.2), 1.0)
-        graf.append(f"[0:v]split=2[va][vb]")
-        graf.append(f"[va]{potong(w, h, 9 / 16, 0.5, 0.5)},scale=1080:1920,setsar=1[utama]")
-        graf.append(f"[vb]{potong(w, h, 1.0, wajah['x'], wajah['y'], zoom)},scale=380:380,setsar=1,"
-                    f"pad=392:392:6:6:color=0x22D3EE[kecil]")
-        graf.append("[utama][kecil]overlay=x=W-w-60:y=220[vid]")
     elif layout == "gamer":
-        # Kanvas 1080x1920: facecam kotak di tengah atas, gameplay kotak besar di bawah (tanpa subtitle)
-        fc_size = int(g.get("fc_size", 600))     # sisi facecam (bujur)
-        game_h = int(g.get("game_h", 1080))      # tinggi gameplay di canvas
+        # Kanvas 1080x1920 (UKURAN TERKUNCI 20 Nov 2026):
+        #   facecam  1080x608  (LEBAR PENUH — nol bolong kiri-kanan)
+        #   gameplay 1080x992  (di bawah facecam)
+        #   branding 1080x320  (bar paling bawah: logo + nama channel)
+        brand_h = int(g.get("brand_h", 320))     # tinggi bar branding (0 = mati)
         zoom = float(g.get("game_zoom", 1.0))    # >1 = perbesar gameplay (potong makin banyak kiri-kanan)
+        fc_w = 1080                              # lebar facecam = lebar kanvas (penuh)
+        # Tinggi slot facecam MENGIKUTI rasio PiP sumber (default) supaya tidak ada
+        # gambar yang terpotong. Kalau slot dipaksa 16:9 sedangkan PiP kotak/4:3,
+        # 44% gambar facecam terbuang. fc_rasio="16:9" mengembalikan perilaku lama.
+        # DEFAULT = slot TETAP (keputusan user): facecam 1080x608, gameplay 1080x992,
+        # branding 1080x320. fc_rasio="sumber" hanya kalau user ingin tinggi slot
+        # mengikuti rasio PiP (opsional, bukan bawaan).
+        ikut_sumber = str(g.get("fc_rasio", "16:9") or "16:9") == "sumber"
+        fc_h = int(g.get("fc_h", 608))           # dipakai hanya bila fc_rasio != sumber
+        game_h = int(g.get("game_h", 992))
         # Layout gamer: subtitle + banner diaktifkan (preset random di bawah)
         # Tidak dipaksa mati lagi.
 
         if g.get("facecam"):
-            # Dua file: facecam terpisah + gameplay
-            # Facecam: crop kotak dari tengah (bukan diregangkan), lalu skala
-            graf.append(f"[FACECAM:v]crop=min(iw\\,ih):min(ih\\,iw):(iw-out_w)/2:(ih-out_h)/2,"
-                        f"scale={fc_size}:{fc_size}:flags=lanczos,setsar=1[fc]")
+            # Dua file: facecam terpisah + gameplay (OPSIONAL — satu file juga bisa)
+            if ikut_sumber:
+                _, fw, fh = info_video(Path(g["facecam"]))
+                if fw and fh:
+                    fc_h = max(200, min(1100, int(round(fc_w * fh / fw)) // 2 * 2))
+            game_h = max(200, 1920 - fc_h - brand_h)
+            if ikut_sumber:
+                # Rasio slot == rasio sumber → skala saja, TIDAK ada yang terpotong
+                graf.append(f"[FACECAM:v]scale={fc_w}:{fc_h}:flags=lanczos,setsar=1[fc]")
+            else:
+                graf.append(f"[FACECAM:v]scale={fc_w}:{fc_h}:force_original_aspect_ratio=increase,"
+                            f"crop={fc_w}:{fc_h},setsar=1[fc]")
+            print(f"• Layout gamer: facecam {fc_w}x{fc_h} · gameplay {fc_w}x{game_h} · branding {fc_w}x{brand_h}")
 
             # Gameplay: skala memperbesar (tinggi penuh tetap utuh), lalu potong kiri-kanan
             graf.append(f"[0:v]scale=-1:{int(game_h * zoom)}:flags=lanczos,"
                         f"crop=w='min(iw\\,1080)':h='min(ih\\,{int(game_h * zoom)})':x='(iw-min(iw\\,1080))/2':y=0,"
                         f"scale=1080:{game_h}:flags=lanczos,setsar=1[game_scaled]")
         else:
-            # Satu file: split input 0 -> facecam (strip wajah) + gameplay
+            # SATU FILE: gameplay + PiP facecam di pojok bawah → facecam dipotong otomatis.
+            # Tidak perlu file facecam terpisah.
             graf.append("[0:v]split=2[va][vb]")
 
-            kunci = jejak_wajah(file, klip.mulai, klip.selesai, w, h) if is_installed() else [(0.0, 0.5)]
-            ch_src = min(int(h * 0.45) // 2 * 2, h)
-            y_src = h - ch_src
-            x_pos = kunci[-1][1] if len(kunci) > 1 else kunci[0][1]
-            if x_pos < 0.40:
-                x_src, cw_src = 0, w
-            elif x_pos > 0.60:
-                x_src, cw_src = int(w * 0.33), int(w * 0.67)
+            kunci = jejak_wajah(file, klip.mulai, klip.selesai, w, h) if is_installed() else []
+            xs_wajah = sorted(float(x) for _, x in kunci if x is not None)
+            x_wajah = xs_wajah[len(xs_wajah) // 2] if xs_wajah else None
+
+            sisi = str(g.get("fc_sisi", "otomatis") or "otomatis")
+            if sisi == "otomatis":
+                sisi = deteksi_sisi_facecam(kunci)
+            preset_fc = float(g.get("fc_preset", 0.26) or 0.26)
+
+            # Kotak crop eksplisit dari UI (pratinjau visual) MENANG atas deteksi otomatis.
+            # Format: [x, y, lebar, tinggi] dalam piksel file sumber.
+            fc_crop = g.get("fc_crop")
+            if fc_crop and len(fc_crop) == 4:
+                x_src, y_src, cw_src, ch_src = (int(v) for v in fc_crop)
+                x_src = max(0, min(x_src, w - 2))
+                y_src = max(0, min(y_src, h - 2))
+                cw_src = max(2, min(cw_src, w - x_src)) // 2 * 2
+                ch_src = max(2, min(ch_src, h - y_src)) // 2 * 2
+                print(f"• Facecam MANUAL: crop={cw_src}x{ch_src}+{x_src}+{y_src} dari sumber {w}x{h}")
             else:
-                x_src, cw_src = 0, w
-            cw_src = min(cw_src, w - x_src) // 2 * 2
+                # Deteksi PRESISI batas PiP (nol bleed) — bukan tebakan proporsional.
+                pip = deteksi_kotak_pip(file, klip.mulai, klip.selesai, sisi)
+                if pip:
+                    x_src, y_src, cw_src, ch_src = pip
+                    print(f"• Facecam PiP PRESISI: sisi={sisi} crop={cw_src}x{ch_src}+{x_src}+{y_src} "
+                          f"dari sumber {w}x{h} (kotak 16:9 di dalam PiP)")
+                else:
+                    cw_src, ch_src, x_src, y_src = kotak_facecam(w, h, sisi, preset_fc, x_wajah)
+                    print(f"• Facecam otomatis (fallback): sisi={sisi} "
+                          f"crop={cw_src}x{ch_src}+{x_src}+{y_src} dari sumber {w}x{h}")
+
+            # Tinggi slot mengikuti rasio kotak PiP → TIDAK ada gambar yang terpotong
+            if ikut_sumber:
+                fc_h = max(200, min(1100, int(round(fc_w * ch_src / cw_src)) // 2 * 2))
+            game_h = max(200, 1920 - fc_h - brand_h)
+            print(f"• Layout gamer: facecam {fc_w}x{fc_h} (rasio {cw_src/ch_src:.3f}) · "
+                  f"gameplay {fc_w}x{game_h} · branding {fc_w}x{brand_h}")
+
+            # Facecam: crop kotak PiP → skala ke slot (rasio sama → utuh, tidak kepotong)
             graf.append(f"[va]crop={cw_src}:{ch_src}:{x_src}:{y_src},"
-                        f"scale={fc_size}:{fc_size}:flags=lanczos,setsar=1[fc]")
+                        f"scale={fc_w}:{fc_h}:flags=lanczos,setsar=1[fc]")
 
-            # Gameplay: skala memperbesar (tinggi penuh tetap utuh), lalu potong kiri-kanan
-            graf.append(f"[vb]scale=-1:{int(game_h * zoom)}:flags=lanczos,"
-                        f"crop=w='min(iw\\,1080)':h='min(ih\\,{int(game_h * zoom)})':x='(iw-min(iw\\,1080))/2':y=0,"
-                        f"scale=1080:{game_h}:flags=lanczos,setsar=1[game_scaled]")
+            # Gameplay: crop area yang BERSIH dari PiP facecam (geser menjauh dari pojok PiP)
+            sh_g = max(2, int(game_h * zoom))
+            sw_g = max(2, int(round(w * sh_g / h)))
+            crop_w = min(sw_g, fc_w)
+            crop_h = min(sh_g, game_h)
+            tengah = (sw_g - crop_w) // 2
+            fc_kiri_s = int(x_src * sh_g / h)
+            fc_kanan_s = int((x_src + cw_src) * sh_g / h)
+            if sisi == "kanan" and fc_kiri_s - crop_w >= 0:
+                x_game = min(tengah, fc_kiri_s - crop_w)      # geser ke kiri, PiP tidak ikut
+            elif sisi == "kiri" and fc_kanan_s <= sw_g - crop_w:
+                x_game = max(tengah, fc_kanan_s)               # geser ke kanan, PiP tidak ikut
+            else:
+                x_game = tengah                               # tidak bisa hindari → tengah
+            print(f"• Gameplay crop: x={x_game} (dari {sw_g}px lebar, PiP di {'kanan' if sisi == 'kanan' else 'kiri'})")
+            graf.append(f"[vb]scale=-1:{sh_g}:flags=lanczos,"
+                        f"crop={crop_w}:{crop_h}:{x_game}:0,"
+                        f"scale={fc_w}:{game_h}:flags=lanczos,setsar=1[game_scaled]")
 
-        # Kanvas hitam, facecam di tengah atas, gameplay di bawahnya
-        fc_x = (1080 - fc_size) // 2
+        # Kanvas hitam → facecam (lebar penuh) → gameplay → bar branding
         graf.append(f"color=c=black:s=1080x1920:d={durasi:.2f}[bg]")
-        graf.append(f"[bg][fc]overlay=x={fc_x}:y=0[t1]")
-        graf.append(f"[t1][game_scaled]overlay=x=0:y={fc_size}[vid]")
+        graf.append(f"[bg][fc]overlay=x=0:y=0[t1]")
+        graf.append(f"[t1][game_scaled]overlay=x=0:y={fc_h}[t2]")
+        if brand_h > 0:
+            aset_branding = cari_berkas_branding(g)
+            if aset_branding:
+                # Gambar branding milik user (idealnya 1080x320) dipakai UTUH —
+                # ruang kosong di kanannya dibiarkan, isi sendiri.
+                graf.append(f"[BRANDING:v]scale={fc_w}:{brand_h}:flags=lanczos,setsar=1[brg]")
+            else:
+                graf.append(f"color=c=0x121212:s={fc_w}x{brand_h}:d={durasi:.2f}[brg]")
+            graf.append(f"[t2][brg]overlay=x=0:y={1920 - brand_h}[vid]")
+        else:
+            graf.append(f"[t2]null[vid]")
 
     elif rasio == "9:16":
         if fokus == "auto":
@@ -2145,18 +2621,22 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         graf.append(f"[{v}][pb]overlay=x='-W+W*t/{durasi:.2f}':y=H-10:eof_action=pass[vp]")
         v = "vp"
     if g.get("layout") == "gamer":
-        # Layout gamer: subtitle aktif di tengah frame, banner mati
-        # preset subtitle acak tiap render biar bervariasi
+        # Layout gamer (revisi user): TANPA subtitle. Banner judul hanya 5 detik
+        # pertama, posisinya TEPAT di tengah frame.
         import random as _r
         if not g.get("preset"):
             g["preset"] = _r.choice(list(PRESET.keys()))
-        g["subtitle"] = True
-        g["banner"] = False
+        g["subtitle"] = False
+        g["banner"] = True
+        g["banner_durasi"] = float(g.get("banner_durasi", 5) or 5)
+        g["banner_tengah"] = True
+        # Gaya banner berbeda untuk setiap klip (kotak + font + warna acak)
+        g["_gaya_banner_obj"] = pilih_gaya_banner(klip)
         g["judul_buka"] = False
         g["akun"] = ""
         g["watermark"] = ""
         if "posisi_y" not in g:
-            g["posisi_y"] = 50  # subtitle di tengah frame (50% dari atas)
+            g["posisi_y"] = 50
     if g.get("subtitle", True) or g.get("banner", True) or c.get("akun") or (g.get("judul_buka", True) and klip.judul) \
             or c.get("watermark"):
         ass = kerja / f"{out.stem}.ass"
@@ -2173,6 +2653,11 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
         graf.append(f"[{v}]null[vout]")
 
     # audio: suara asli (boost) + musik latar + SFX hook
+    # Bar branding gamer: gambar 1080x320 milik user, dipakai utuh sebagai input
+    if layout == "gamer" and int(g.get("brand_h", 320)) > 0:
+        aset_branding = cari_berkas_branding(g)
+        if aset_branding:
+            masukan_extra += ["-loop", "1", "-t", f"{durasi:.2f}", "-i", str(aset_branding.resolve())]
     masukan = ["-ss", f"{klip.mulai:.2f}", "-t", f"{durasi:.2f}", "-i", str(file.resolve()), *masukan_extra]
     fc_path = g.get("facecam")
     if fc_path:
@@ -2200,7 +2685,9 @@ def render(file: Path, klip: Klip, kal: list[Kalimat], out: Path, kerja: Path, w
 
     # facecam selalu input terakhir (setelah semua masukan_extra); hitung berapa -i di masukan_extra
     fc_in = 1 + sum(1 for i, a in enumerate(masukan_extra) if a == "-i")
+    # Branding = input terakhir di masukan_extra → tepat satu indeks di bawah facecam
     graf = [g.replace("[FACECAM:v]", f"[{fc_in}:v]") for g in graf]
+    graf = [g.replace("[BRANDING:v]", f"[{max(fc_in - 1, 0)}:v]") for g in graf]
 
     subprocess.run([
         ffmpeg(), "-y", "-v", "error", *masukan,
@@ -2308,6 +2795,9 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
         mode_momen = getattr(a, "momen", "") or ("gamer" if a.layout == "gamer" else "umum")
         tahap_ai = ai_tahap_aktif("skor", {"ai_tahap": getattr(a, "ai_tahap", "")})
         pakai_ai = ai_siap(penyedia, {}) and tahap_ai
+        if not pakai_ai:
+            _ai_catat(False, f"AI tidak diaktifkan (penyedia='{penyedia}', tahap AI='{getattr(a, 'ai_tahap', '') or 'default'}'). "
+                             "Momen dipilih heuristik lokal: kamus gamer + sinyal fisik.")
         # Sinyal lokal (energi/lonjakan/reaksi/aksi) dipakai apa adanya:
         # inilah bukti gaming yang tidak bisa dinilai LLM dari teks saja.
         sinyal = hitung_sinyal(file, getattr(a, "facecam", "") or "")
@@ -2317,12 +2807,16 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
             klips = ai_pilih_momen_utama(
                 kal, a.durasi, a.jumlah, a.arahan,
                 penyedia=penyedia,
-                cache=kerja / "ai-momen.json",
+                cache=kerja / f"ai-momen-{mode_momen}.json",
+                mode=mode_momen,
+                sinyal=sinyal,
             )
             if klips:
                 sumber_ai = f"{penyedia}"
                 log(f"   AI utama memilih {len(klips)} momen dari teks Whisper.")
             else:
+                if not AI_STATUS.get("alasan"):
+                    _ai_catat(False, "AI tidak mengembalikan momen yang bisa dipakai, jadi dipilih heuristik lokal.")
                 log("   AI utama gagal → pakai heuristik lokal.")
                 klips = (pilih_momen(kal, en, heatmap, a.durasi, a.jumlah, panjang, a.arahan,
                                      mode="gamer", sinyal=sinyal) if mode_momen == "gamer"
@@ -2393,6 +2887,16 @@ def analisis(a, keluar: Path, kerja: Path) -> None:
     (keluar / "info.json").write_text(json.dumps({
         "judul": judul, "durasi": round(panjang, 1), "lebar": w, "tinggi": h, "heatmap": heatmap,
         "energi": energi_ringkas, "ai": sumber_ai, "ringkasan": ringkasan, "hashtag": hashtag,
+        # Rincian apakah AI ikut andil — ditampilkan di web UI setelah analisis
+        "ai_info": {
+            "pakai": bool(AI_STATUS.get("pakai")) and sumber_ai != "lokal",
+            "penyedia": sumber_ai,
+            "model": AI_STATUS.get("model", ""),
+            "alasan": AI_STATUS.get("alasan", ""),
+            "dari_cache": bool(AI_STATUS.get("dari_cache")),
+            "tahap": getattr(a, "ai_tahap", "") or "default",
+            "momen": locals().get("mode_momen", "") or "",
+        },
         "sumber": str(file), "pratinjau": tautan.name, "rentang": [ra, rb],
     }, ensure_ascii=False), encoding="utf-8")
     (keluar / "klip.json").write_text(json.dumps(daftar, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -2455,6 +2959,8 @@ def main() -> None:
     p.add_argument("--momen", choices=["umum", "gamer"], default="",
                    help="cara cari momen: umum (default) atau gamer (teriakan + reaksi wajah + aksi game). Kosong = ikut layout")
     p.add_argument("--bahasa", default="id", help="kode bahasa, mis. id atau en; 'auto' = deteksi otomatis (default id)")
+    p.add_argument("--bahasa-judul", choices=["id", "en"], default="id",
+                   help="bahasa untuk judul/banner yang ditulis AI: id (Indonesia) atau en (English)")
     p.add_argument("--keluar", default="hasil-klip", help="folder hasil")
     p.add_argument("--tanpa-wajah", action="store_true", help="bingkai tengah, jangan ikuti wajah")
     p.add_argument("--tanpa-subtitle", action="store_true")
@@ -2473,16 +2979,27 @@ def main() -> None:
     p.add_argument("--jejak", type=int, help="hitung jejak wajah klip nomor N (disimpan di klip.json, dipakai pratinjau)")
     p.add_argument("--pilih", help="nomor klip yang dirender, mis. 1,3,4 (default semua)")
     p.add_argument("--uji-ai", help="uji sambungan AI (lokal/gemini/openai/claude-code/codex/opencode)")
+    p.add_argument("--deteksi-pip", choices=["kiri", "kanan"], default=None,
+                   help="hanya cetak kotak crop PiP presisi sebagai JSON (dipakai pratinjau web UI)")
     p.add_argument("--broll", choices=["pixabay", "file"], help="sisipkan B-roll: pixabay (butuh PIXABAY_API_KEY) atau file sendiri")
     p.add_argument("--broll-file", nargs="*", default=[], help="video/foto milikmu untuk B-roll (dengan --broll file)")
     p.add_argument("--watermark", help="teks di tengah klip, putih transparan ±50%%, mis. @akunmu")
-    p.add_argument("--layout", default=None, choices=["tunggal", "facecam", "pip", "gamer"],
-                   help="tampilan klip: tunggal, facecam, pip, gamer (kalau kosong dan CLI interaktif, ditanyakan)")
-    p.add_argument("--facecam", help="file facecam kamera untuk layout gamer (2 kamera, game di atas + wajah di bawah)")
+    p.add_argument("--layout", default=None, choices=["tunggal", "gamer"],
+                   help="tampilan klip: tunggal (satu layar) atau gamer (wajah atas + gameplay bawah + branding)")
     p.add_argument("--face-mode", default="auto", choices=["auto", "manual", "fit"], help="bingkai 9:16: auto (ikuti wajah bicara), manual (tentukan --face-x), fit (layar penuh)")
     p.add_argument("--face-x", type=float, default=0.5, help="posisi wajah 0.0 (kiri) … 1.0 (kanan) untuk --face-mode manual")
     p.add_argument("--gaya", help="JSON gaya render (rasio, latar, fokus, layout, banner, subtitle, musik, …)")
     a = p.parse_args()
+    globals()["BAHASA_JUDUL"] = a.bahasa_judul
+
+    if a.deteksi_pip:
+        # Mode ringan untuk pratinjau web UI: deteksi kotak PiP lalu keluar.
+        if not a.sumber:
+            p.error("--deteksi-pip butuh file video sumber")
+        dur, w0, h0 = info_video(Path(a.sumber))
+        kotak = deteksi_kotak_pip(Path(a.sumber), 0.0, min(dur, 8.0) if dur else 8.0, a.deteksi_pip)
+        print(json.dumps({"crop": kotak, "w": w0, "h": h0}))
+        return
 
     # Konfirmasi interaktif HANYA kalau --layout tidak diberikan sama sekali.
     # Kalau "tunggal" sudah datang dari ./mulai atau studio.py, jangan tanya lagi

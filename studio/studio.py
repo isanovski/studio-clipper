@@ -58,7 +58,7 @@ PORT = int(os.environ.get("STUDIO_PORT", "8787"))
 # HOST=0.0.0.0 → bisa dibuka dari HP di Wi-Fi yang sama (opt-in, bawaan tetap lokal saja)
 HOST = os.environ.get("STUDIO_HOST", "127.0.0.1")
 KUNCI = ["SUARA", "VOXCPM_MODE", "VOXCPM_DESAIN", "AI", "LANGGANAN", "OPENCODE_MODEL", "CLAUDE_CODE_MODEL", "CODEX_MODEL", "GEMINI_API_KEY", "GEMINI_MODEL",
-         "OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL", "OPENROUTER_API_KEY", "OPENROUTER_BASE_URL", "OPENROUTER_MODELS",
+         "OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL", "OPENAI_THINKING", "OPENROUTER_API_KEY", "OPENROUTER_BASE_URL", "OPENROUTER_MODELS",
          "SUARA_MAC", "TEMA", "PIXABAY_API_KEY"]
 BAWAAN = {"SUARA": "bawaan", "VOXCPM_MODE": "bawaan", "AI": "lokal", "LANGGANAN": "claude-code", "GEMINI_MODEL": "gemini-3.8-flash",
           "OPENAI_BASE_URL": "http://localhost:11434/v1", "OPENAI_MODEL": "gemma3:4b",
@@ -76,11 +76,39 @@ def baca_pengaturan() -> dict:
     return p
 
 
+RAHASIA = {"GEMINI_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "PIXABAY_API_KEY"}
+
+
 def simpan_pengaturan(baru: dict) -> None:
+    """Simpan pengaturan.
+
+    Kunci rahasia di web UI sengaja TIDAK dikirim balik utuh (nilainya dimask),
+    jadi kolomnya kosong. Kolom kosong = "jangan diubah", bukan "hapus" —
+    kalau tidak, setiap klik Simpan akan menghapus semua API key.
+    Penghapusan harus eksplisit lewat HAPUS_KUNCI.
+    """
     p = baca_pengaturan()
+    # Backup SEBELUM menimpa. Kehilangan API key karena restore/tulis ulang sudah
+    # pernah terjadi; dengan backup, nilai lama selalu bisa dikembalikan.
+    try:
+        if ENV.exists():
+            cad = ENV.with_suffix(".env.cadangan")
+            cad.write_text(ENV.read_text(encoding="utf-8"), encoding="utf-8")
+            os.chmod(cad, 0o600)
+    except OSError:
+        pass  # backup gagal tidak boleh menggagalkan penyimpanan
+    hapus = set(baru.get("HAPUS_KUNCI") or [])
     for k in KUNCI:
-        if k in baru and baru[k] is not None:
-            p[k] = str(baru[k]).strip()
+        if k in hapus:
+            p[k] = ""
+            continue
+        if k not in baru or baru[k] is None:
+            continue
+        nilai = str(baru[k]).strip()
+        if k in RAHASIA:
+            if not nilai or nilai.startswith("\u2022\u2022\u2022\u2022"):
+                continue  # kosong / masih terbungkus mask -> biarkan yang lama
+        p[k] = nilai
     DATA.mkdir(parents=True, exist_ok=True)
     ENV.write_text("# Pengaturan Isanovski Studio (berisi kunci AI — jangan dibagikan)\n" +
                    "\n".join(f"{k}={p.get(k, '')}" for k in KUNCI) + "\n", encoding="utf-8")
@@ -203,7 +231,7 @@ def penyedia_ai(nilai: str | None) -> str:
     v = (nilai or p["AI"] or "lokal").lower()
     if v == "claude":  # Claude API dihapus (14 Nov 2026) → pakai Lokal
         v = "lokal"
-    return p.get("LANGGANAN") or "claude-code" if v == "langganan" else v
+    return (p.get("LANGGANAN") or "claude-code") if v == "langganan" else v
 
 
 CLI_DIR = Path.home() / ".studio-isanovski" / "cli"  # CLI dipasang di sini (tanpa sudo)
@@ -386,6 +414,257 @@ def uji_ai(penyedia: str) -> dict:
     return {"ok": False, "pesan": (galat[-1] if galat else (keluaran[-1] if keluaran else "Gagal tanpa pesan."))[:400], "penyedia": nyata}
 
 
+def pratinjau_facecam(sumber: str, t: float, crop_q: str) -> dict:
+    """Pratinjau kotak crop facecam pada satu frame video sumber.
+
+    Mengembalikan JPEG base64 dengan kotak crop digambar, plus koordinatnya.
+    Kotak selalu 16:9 (rasio slot facecam 1080x608) supaya hasil tidak gepeng.
+    Dipakai halaman Klip untuk menyetel crop secara visual.
+    """
+    import base64
+    import cv2
+
+    p = Path(sumber).resolve()
+    if not p.is_file() or DATA.resolve() not in p.parents:
+        raise ValueError("File sumber tidak ditemukan di folder Studio.")
+
+    cap = cv2.VideoCapture(str(p))
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    cap.set(cv2.CAP_PROP_POS_MSEC, max(0.0, t) * 1000)
+    ok, fr = cap.read()
+    cap.release()
+    if not ok:
+        raise ValueError("Gagal membaca frame video.")
+
+    # Deteksi wajah di frame ini (ringan: 1 frame, bukan jejak 6 fps)
+    x_wajah = None
+    try:
+        model = KLIP / "model" / "face_detection_yunet_2023mar.onnx"
+        if model.exists():
+            sk = 640 / w
+            kecil = cv2.resize(fr, (640, max(2, int(h * sk))))
+            det = cv2.FaceDetectorYN.create(str(model), "", (kecil.shape[1], kecil.shape[0]), 0.6, 0.3, 50)
+            _, wajah = det.detect(kecil)
+            if wajah is not None and len(wajah):
+                besar = max(wajah, key=lambda a: a[2] * a[3])
+                x_wajah = float((besar[0] + besar[2] / 2) / kecil.shape[1])
+    except Exception:  # noqa: BLE001 — deteksi gagal -> pakai pojok saja
+        x_wajah = None
+
+    # Kotak otomatis: pakai deteksi PRESISI yang sama dengan jalur render
+    # (`klip.py --deteksi-pip`), supaya pratinjau == hasil render (WYSIWYG).
+    sisi = "kanan" if (x_wajah is None or x_wajah >= 0.5) else "kiri"
+    otomatis = None
+    try:
+        r = subprocess.run([*jalankan_skrip(KLIP / "klip.py"), str(p), "--deteksi-pip", sisi],
+                           capture_output=True, text=True, timeout=120, cwd=KLIP)
+        if r.returncode == 0:
+            baris = [b for b in (r.stdout or "").strip().splitlines() if b.strip().startswith("{")]
+            if baris:
+                data = json.loads(baris[-1])
+                if data.get("crop"):
+                    otomatis = [int(v) for v in data["crop"]]
+    except Exception:  # noqa: BLE001 — fallback ke rumus proporsional di bawah
+        otomatis = None
+
+    if not otomatis:
+        cw = max(64, int(w * 0.26) // 2 * 2)
+        ch = max(36, int(round(cw * 9 / 16)) // 2 * 2)
+        x = 0 if sisi == "kiri" else w - cw
+        if x_wajah is not None:
+            baru = max(0, min(int(x_wajah * w) - cw // 2, w - cw))
+            x = max(0, min(int((x * 0.4 + baru * 0.6) // 2 * 2), w - cw))
+        otomatis = [x, h - ch, cw, ch]
+
+    # Kotak eksplisit dari slider UI (format "x,y,lebar,tinggi" piksel sumber)
+    kotak = otomatis
+    if crop_q:
+        try:
+            nilai = [int(float(v)) for v in crop_q.split(",")]
+            if len(nilai) == 4:
+                cx, cy, cw2, ch2 = nilai
+                cx = max(0, min(cx, w - 2))
+                cy = max(0, min(cy, h - 2))
+                cw2 = max(2, min(cw2, w - cx))
+                ch2 = max(2, min(ch2, h - cy))
+                kotak = [cx, cy, cw2, ch2]
+        except ValueError:
+            pass
+
+    # Gambar kotak pada salinan frame yang diperkecil
+    skala = min(1.0, 760 / w)
+    tampil = cv2.resize(fr, (int(w * skala), int(h * skala)), interpolation=cv2.INTER_AREA)
+    cx, cy, cw2, ch2 = [int(v * skala) for v in kotak]
+    cv2.rectangle(tampil, (cx, cy), (cx + cw2, cy + ch2), (0, 255, 255), 3)
+    cv2.putText(tampil, f"facecam {kotak[2]}x{kotak[3]}", (cx + 6, max(20, cy - 8)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
+    # area yang masuk gameplay (di luar kotak) diredupkan supaya jelas
+    topeng = tampil.copy()
+    cv2.rectangle(topeng, (cx, cy), (cx + cw2, cy + ch2), (0, 0, 0), -1)
+    gelap = cv2.addWeighted(tampil, 0.45, topeng, 0.55, 0)
+    gelap[cy:cy + ch2, cx:cx + cw2] = tampil[cy:cy + ch2, cx:cx + cw2]
+    cv2.rectangle(gelap, (cx, cy), (cx + cw2, cy + ch2), (0, 255, 255), 3)
+
+    # Slot TETAP sesuai keputusan user: facecam 1080x608, gameplay 1080x992,
+    # branding 1080x320. Kotak crop dibuat 16:9 agar pas dengan slot.
+    fc_h = 608
+    _, buf = cv2.imencode(".jpg", gelap, [cv2.IMWRITE_JPEG_QUALITY, 82])
+    return {"img": base64.b64encode(buf.tobytes()).decode("ascii"),
+            "w": w, "h": h, "crop": kotak, "otomatis": otomatis,
+            "sisi": sisi, "x_wajah": x_wajah,
+            "fc_h": fc_h, "game_h": max(200, 1920 - fc_h - 320),
+            "rasio": round(kotak[2] / kotak[3], 3)}
+
+
+# ── Perlindungan password ───────────────────────────────────────────────────
+# Studio bisa diakses publik lewat Cloudflare Tunnel, jadi wajib ada gerbang.
+# Password dibuat SENDIRI oleh pemilik saat pertama kali membuka halaman —
+# tidak ada password bawaan dan tidak ada yang tersimpan sebagai teks polos.
+SANDI_FILE = DATA / ".sandi-studio"
+SESI_DETIK = 60 * 60 * 24 * 30  # cookie berlaku 30 hari
+
+
+def _baca_sandi() -> dict | None:
+    try:
+        return json.loads(SANDI_FILE.read_text(encoding="utf-8")) if SANDI_FILE.exists() else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _hash_sandi(sandi: str, garam: bytes) -> str:
+    import hashlib
+    return hashlib.pbkdf2_hmac("sha256", sandi.encode("utf-8"), garam, 120_000).hex()
+
+
+def _token_sesi(rahasia: str) -> str:
+    import hashlib, hmac
+    return hmac.new(rahasia.encode("utf-8"), b"studio-isanovski", hashlib.sha256).hexdigest()
+
+
+HALAMAN_MASUK = """<!doctype html><html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>isanovski Studio — Masuk</title>
+<style>
+ body{background:#050505;color:#fff;font-family:system-ui,sans-serif;display:flex;
+      align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px}
+ .k{background:#0a0a0a;border:3px solid #f5a524;padding:26px;max-width:380px;width:100%;
+    box-shadow:4px 4px 0 #000}
+ h1{font-size:22px;margin:0 0 6px;color:#f5a524}
+ p{color:#9aa3ad;font-size:14px;margin:0 0 18px;line-height:1.5}
+ input{width:100%;padding:14px;font-size:17px;background:#000;color:#fff;
+       border:2px solid #2a2f3a;margin-bottom:12px;box-sizing:border-box}
+ button{width:100%;padding:14px;font-size:17px;font-weight:700;background:#f5a524;
+        color:#0b0c0f;border:0;cursor:pointer;min-height:48px}
+ .err{color:#ff6b6b;font-size:14px;margin-bottom:12px;min-height:18px}
+</style></head><body><div class="k">
+<h1>isanovski Studio</h1>
+<p>__PESAN__</p>
+<div class="err">__ERROR__</div>
+<form method="POST" action="/masuk">
+<input type="password" name="sandi" placeholder="Password" autocomplete="current-password" required autofocus>
+__KONFIRMASI__
+<button type="submit">__TOMBOL__</button>
+</form></div></body></html>"""
+
+
+class Autentikasi:
+    @staticmethod
+    def _kirim(handler, html: str, kode: int = 200):
+        data = html.encode("utf-8")
+        handler.send_response(kode)
+        handler.send_header("Content-Type", "text/html; charset=utf-8")
+        handler.send_header("Content-Length", str(len(data)))
+        handler.send_header("Cache-Control", "no-store")
+        handler.end_headers()
+        handler.wfile.write(data)
+
+    @staticmethod
+    def halaman(handler, pesan: str, tombol: str, error: str = "", konfirmasi: bool = False):
+        kolom = ('<input type="password" name="sandi2" placeholder="Ulangi password" '
+                 'autocomplete="new-password" required>') if konfirmasi else ""
+        html = (HALAMAN_MASUK.replace("__PESAN__", pesan).replace("__TOMBOL__", tombol)
+                .replace("__ERROR__", error).replace("__KONFIRMASI__", kolom))
+        Autentikasi._kirim(handler, html)
+
+    @staticmethod
+    def token_valid(handler) -> bool:
+        s = _baca_sandi()
+        if not s:
+            return False
+        kue = handler.headers.get("Cookie", "")
+        for bagian in kue.split(";"):
+            nama, _, nilai = bagian.strip().partition("=")
+            if nama == "studio_sesi" and nilai:
+                return hmac_banding(nilai, _token_sesi(s["rahasia"]))
+        return False
+
+    @staticmethod
+    def perlu(handler, jalur: str) -> bool:
+        """True bila request BOLEH diteruskan. Kalau False, respons sudah dikirim."""
+        if jalur in ("/masuk", "/keluar"):
+            return True
+        s = _baca_sandi()
+        if not s:  # belum ada password -> minta dibuat dulu
+            Autentikasi.halaman(handler,
+                "Belum ada password. Buat password untuk melindungi Studio ini "
+                "dari orang lain. Gunakan password yang kamu ingat.",
+                "Buat password & masuk", konfirmasi=True)
+            return False
+        if Autentikasi.token_valid(handler):
+            return True
+        if jalur.startswith("/api/"):
+            handler._json({"galat": "belum masuk"}, 401)
+            return False
+        Autentikasi.halaman(handler, "Studio ini dilindungi password. Masuk untuk melanjutkan.", "Masuk")
+        return False
+
+
+def hmac_banding(a: str, b: str) -> bool:
+    import hmac
+    return hmac.compare_digest(str(a), str(b))
+
+
+def proses_masuk(handler, data: dict) -> None:
+    """Buat password baru (pertama kali) atau verifikasi login."""
+    import secrets
+    s = _baca_sandi()
+    sandi = (data.get("sandi") or "").strip()
+    if not sandi:
+        return Autentikasi.halaman(handler, "Password tidak boleh kosong.", "Masuk", "Isi password dulu.")
+    if not s:
+        if len(sandi) < 6:
+            return Autentikasi.halaman(handler, "Password minimal 6 karakter.", "Buat password & masuk",
+                                       "Password terlalu pendek.", True)
+        if sandi != (data.get("sandi2") or "").strip():
+            return Autentikasi.halaman(handler, "Password tidak sama.", "Buat password & masuk",
+                                       "Kolom konfirmasi tidak cocok.", True)
+        garam = secrets.token_bytes(16)
+        s = {"garam": garam.hex(), "hash": _hash_sandi(sandi, garam), "rahasia": secrets.token_hex(32)}
+        DATA.mkdir(parents=True, exist_ok=True)
+        SANDI_FILE.write_text(json.dumps(s), encoding="utf-8")
+        os.chmod(SANDI_FILE, 0o600)
+    else:
+        if _hash_sandi(sandi, bytes.fromhex(s["garam"])) != s["hash"]:
+            return Autentikasi.halaman(handler, "Password salah. Coba lagi.", "Masuk", "Password salah.")
+
+    # Sukses -> pasang cookie sesi lalu lempar ke beranda
+    aman = "; Secure" if handler.headers.get("X-Forwarded-Proto") == "https" else ""
+    handler.send_response(303)
+    handler.send_header("Location", "/")
+    handler.send_header("Set-Cookie",
+                        f"studio_sesi={_token_sesi(s['rahasia'])}; Path=/; HttpOnly; "
+                        f"SameSite=Lax; Max-Age={SESI_DETIK}{aman}")
+    handler.end_headers()
+
+
+def proses_keluar(handler) -> None:
+    handler.send_response(303)
+    handler.send_header("Location", "/masuk")
+    handler.send_header("Set-Cookie", "studio_sesi=; Path=/; HttpOnly; Max-Age=0")
+    handler.end_headers()
+
+
 def mulai_klip(d: dict) -> dict:
     sumber = (d.get("sumber") or "").strip()
     if not sumber:
@@ -396,8 +675,6 @@ def mulai_klip(d: dict) -> dict:
            "--ai", penyedia_ai(d.get("ai")), "--model", d.get("model", "small"),
            "--warna", d.get("warna", "#FFB020"),
            "--layout", d.get("layout", "tunggal")]
-    if d.get("facecam"):
-        cmd += ["--facecam", d["facecam"]]
     if d.get("face_mode"):
         cmd += ["--face-mode", d["face_mode"]]
     if d.get("face_x") is not None:
@@ -406,13 +683,29 @@ def mulai_klip(d: dict) -> dict:
         cmd += ["--momen", d["momen"]]
     if d.get("ai_tahap"):
         cmd += ["--ai-tahap", d["ai_tahap"]]
-    cmd.append("--hanya-analisis")
+    if d.get("render"):
+        # Gabung analisis + render: tanpa --hanya-analisis, klip.py langsung merender
+        # semua momen yang dipilih (analisis() lalu render_terpilih()).
+        gaya_gabung = {}
+        for k in ("fc_sisi", "fc_crop", "fc_preset", "brand_h"):
+            if d.get(k) is not None:
+                gaya_gabung[k] = d[k]
+        if gaya_gabung:
+            cmd += ["--gaya", json.dumps(gaya_gabung, ensure_ascii=False)]
+    else:
+        cmd.append("--hanya-analisis")
     if d.get("arahan"):
         cmd += ["--arahan", d["arahan"]]
+    if d.get("bahasa_judul") in ("id", "en"):
+        cmd += ["--bahasa-judul", d["bahasa_judul"]]
     if d.get("rentang"):
         cmd += ["--rentang", d["rentang"]]
     if d.get("subtitle_file"):
         cmd += ["--subtitle-file", d["subtitle_file"]]
+    # Model besar di VPS RAM kecil: pecah audio per 120 dtk supaya tidak swap-thrash.
+    # Timestamp kata tetap digeser ke waktu asli video oleh klip.py.
+    if d.get("model") in ("medium", "large", "large-v3"):
+        cmd += ["--potong", "120"]
     (folder / "permintaan.json").write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
 
     def setelah(k: Kerja):
@@ -444,14 +737,17 @@ def mulai_render_klip(d: dict) -> dict:
             p = json.loads(permintaan.read_text(encoding="utf-8"))
             if p.get("layout") and not gaya.get("layout"):
                 gaya["layout"] = p["layout"]
-            if p.get("facecam") and not gaya.get("facecam"):
-                gaya["facecam"] = p["facecam"]
+            # facecam layout dihapus — jangan salin facecam dari permintaan lama
             if p.get("face_mode") and not gaya.get("fokus"):
                 gaya["fokus"] = p["face_mode"]
             if p.get("face_x") is not None and gaya.get("face_x") is None:
                 gaya["face_x"] = p["face_x"]
             if p.get("ai_tahap") and not gaya.get("ai_tahap"):
                 gaya["ai_tahap"] = p["ai_tahap"]
+            if p.get("fc_sisi") and not gaya.get("fc_sisi"):
+                gaya["fc_sisi"] = p["fc_sisi"]
+            if p.get("fc_crop") and not gaya.get("fc_crop"):
+                gaya["fc_crop"] = p["fc_crop"]
         except (json.JSONDecodeError, OSError):
             pass
     # judul banner hasil suntingan pengguna
@@ -692,6 +988,17 @@ class H(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(n) or b"{}")
 
+    def _form(self) -> dict:
+        """Baca body application/x-www-form-urlencoded (form login)."""
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = 0
+        if n <= 0 or n > 64 * 1024:
+            return {}
+        mentah = self.rfile.read(n).decode("utf-8", errors="replace")
+        return {k: v[0] for k, v in parse_qs(mentah).items()}
+
     def _asal_aman(self) -> bool:
         # tolak permintaan dari situs lain (CSRF) — hanya halaman Studio sendiri.
         # Di belakang proxy port-forwarding (GitHub Codespaces, Cloud Shell, Firebase Studio)
@@ -714,6 +1021,22 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
         jalur = unquote(u.path)
+        if jalur == "/keluar":
+            return proses_keluar(self)
+        if jalur == "/masuk":
+            if not _baca_sandi():
+                return Autentikasi.halaman(self,
+                    "Belum ada password. Buat password untuk melindungi Studio ini "
+                    "dari orang lain. Gunakan password yang kamu ingat.",
+                    "Buat password & masuk", konfirmasi=True)
+            if Autentikasi.token_valid(self):
+                self.send_response(303)
+                self.send_header("Location", "/")
+                self.end_headers()
+                return
+            return Autentikasi.halaman(self, "Studio ini dilindungi password. Masuk untuk melanjutkan.", "Masuk")
+        if not Autentikasi.perlu(self, jalur):
+            return
         try:
             if jalur in ("/", "/index.html"):
                 return self._file(AKAR / "index.html")
@@ -743,6 +1066,14 @@ class H(BaseHTTPRequestHandler):
                 if jenis not in ("unggahan", "aset"):
                     return self._json({"galat": "jenis tidak valid"}, 400)
                 return self._json({"file": daftar_file(jenis)})
+            if jalur == "/api/pratinjau-facecam":
+                q = parse_qs(u.query)
+                try:
+                    return self._json(pratinjau_facecam(q.get("sumber", [""])[0],
+                                                        float(q.get("t", ["2"])[0] or 2),
+                                                        q.get("crop", [""])[0]))
+                except Exception as e:  # noqa: BLE001
+                    return self._json({"galat": str(e)}, 400)
             if m := re.match(r"^/api/jejak/([\w-]+)/(\d+)$", jalur):
                 return self._json(jejak_klip(m.group(1), int(m.group(2))))
             if m := re.match(r"^/api/proyek/(klip|motion)/([\w-]+)$", jalur):
@@ -750,6 +1081,24 @@ class H(BaseHTTPRequestHandler):
                 if not p.get("klip") and not p.get("info"):
                     p = muat_proyek(m.group(1), m.group(2), _hasil=True)
                 return self._json(p)
+            if jalur == "/api/unduh-file":
+                # dipanggil <a href> di web UI → harus GET, bukan POST
+                q = parse_qs(urlparse(self.path).query)
+                f = (DATA / q.get("jenis", [""])[0] / q.get("nama", [""])[0] / q.get("file", [""])[0]).resolve()
+                if not f.is_file() or DATA.resolve() not in f.parents:
+                    return self._json({"galat": "berkas tidak ditemukan"}, 404)
+                self.send_response(200)
+                self.send_header("Content-Type", mimetypes.guess_type(f.name)[0] or "application/octet-stream")
+                self.send_header("Content-Disposition", f'attachment; filename="{f.name}"')
+                self.send_header("Content-Length", str(f.stat().st_size))
+                self.end_headers()
+                with open(f, "rb") as fh:
+                    while True:
+                        blok = fh.read(1 << 16)
+                        if not blok:
+                            break
+                        self.wfile.write(blok)
+                return
             if m := re.match(r"^/berkas/(klip|motion)/([\w-]+)/([\w.-]+)$", jalur):
                 f = DATA / m.group(1) / m.group(2) / m.group(3)
                 if not f.exists():
@@ -766,9 +1115,13 @@ class H(BaseHTTPRequestHandler):
             pass
 
     def do_POST(self):
+        jalur = urlparse(self.path).path
+        if jalur == "/masuk":
+            return proses_masuk(self, self._form())
+        if not Autentikasi.perlu(self, jalur):
+            return
         if not self._asal_aman():
             return self._json({"galat": "asal tidak diizinkan"}, 403)
-        jalur = urlparse(self.path).path
         try:
             if jalur == "/api/pasang-suara":
                 return self._json(pasang_suara())
@@ -828,13 +1181,14 @@ class H(BaseHTTPRequestHandler):
             if jalur == "/api/klip-render":
                 return self._json(mulai_render_klip(d))
             if jalur == "/api/hapus-proyek":
-                f = (DATA / d.get("jenis", "") / re.sub(r"[^\w-]", "", d.get("nama", ""))).resolve()
+                nama = re.sub(r"[^\w-]", "", d.get("nama", ""))
+                f = (DATA / d.get("jenis", "") / nama).resolve()
                 if f.is_dir() and DATA.resolve() in f.parents and f.parent.name in ("klip", "motion"):
                     shutil.rmtree(f)
-                else:
-                    f2 = Path("/home/ubuntu/studio-clipper/hasil") / re.sub(r"[^\w-]", "", d.get("nama", ""))
-                    if f2.is_dir():
-                        shutil.rmtree(f2)
+                # Hapus juga di lokasi lama /home/ubuntu/studio-clipper/hasil agar file benar-benar hilang
+                f2 = Path("/home/ubuntu/studio-clipper/hasil") / nama
+                if f2.is_dir():
+                    shutil.rmtree(f2)
                 return self._json({"ok": True})
             if jalur == "/api/hapus-file":
                 jenis = d.get("jenis", "unggahan")
@@ -842,10 +1196,14 @@ class H(BaseHTTPRequestHandler):
                     return self._json({"galat": "jenis tidak valid"}, 400)
                 nama = re.sub(r"[^\w.-]", "", d.get("nama", ""))
                 f = (DATA / jenis / nama).resolve()
-                if not f.is_file() or DATA.resolve() not in f.parents:
-                    return self._json({"galat": "berkas tidak ditemukan"}, 404)
-                f.unlink()
-                return self._json({"ok": True, "nama": nama})
+                if DATA.resolve() not in f.parents:
+                    return self._json({"galat": "lokasi tidak diizinkan"}, 400)
+                # Idempoten: kalau file memang sudah tidak ada di disk (mis. dihapus
+                # lewat SSH), anggap SUKSES supaya entrinya hilang dari daftar UI.
+                # Mengembalikan 404 membuat entri macet tidak bisa dihapus dari web.
+                if f.is_file():
+                    f.unlink()
+                return self._json({"ok": True, "nama": nama, "sudah_tidak_ada": not f.exists()})
             if jalur == "/api/klip":
                 return self._json(mulai_klip(d))
             if jalur == "/api/motion":
@@ -853,8 +1211,6 @@ class H(BaseHTTPRequestHandler):
             if jalur == "/api/unduh":
                 f = (DATA / d.get("jenis", "") / d.get("nama", "") / d.get("file", "")).resolve()
                 if not f.is_file() or DATA.resolve() not in f.parents:
-                    f = Path("/home/ubuntu/studio-clipper/hasil") / d.get("nama", "") / d.get("file", "")
-                if not f.is_file():
                     return self._json({"galat": "berkas tidak ditemukan"}, 404)
                 tujuan = Path.home() / "Downloads" / f"{d.get('nama')}-{f.name}"
                 shutil.copy(f, tujuan)
@@ -862,8 +1218,6 @@ class H(BaseHTTPRequestHandler):
             if jalur == "/api/unduh-file":
                 f = (DATA / d.get("jenis", "") / d.get("nama", "") / d.get("file", "")).resolve()
                 if not f.is_file() or DATA.resolve() not in f.parents:
-                    f = Path("/home/ubuntu/studio-clipper/hasil") / d.get("nama", "") / d.get("file", "")
-                if not f.is_file():
                     return self._json({"galat": "berkas tidak ditemukan"}, 404)
                 self.send_response(200)
                 self.send_header("Content-Type", "video/mp4")

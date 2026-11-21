@@ -17,6 +17,10 @@ pengaturan.env
 # bahan video lokal (besar) — jangan di-push
 contoh/
 
+# log server (jangan di-commit)
+server.log
+*.log
+
 # sisa import python
 __pycache__/
 *.pyc
