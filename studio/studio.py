@@ -606,6 +606,9 @@ class Autentikasi:
             return True
         s = _baca_sandi()
         if not s:  # belum ada password -> minta dibuat dulu
+            if jalur.startswith("/api/"):
+                handler._json({"galat": "belum masuk — buat password dulu di halaman Pengaturan"}, 401)
+                return False
             Autentikasi.halaman(handler,
                 "Belum ada password. Buat password untuk melindungi Studio ini "
                 "dari orang lain. Gunakan password yang kamu ingat.",

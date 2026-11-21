@@ -3036,7 +3036,7 @@ def main() -> None:
             "layout": a.layout, "banner": False,
             **( {"broll": a.broll, "broll_file": a.broll_file} if a.broll else {}),
             **( {"watermark": a.watermark} if a.watermark else {}),
-            **( {"facecam": a.facecam} if a.facecam else {}),
+            **( {"facecam": a.facecam} if getattr(a, "facecam", None) else {}),
             **( {"face_x": a.face_x} if a.face_mode == "manual" else {} ),
             **( {"ai_tahap": a.ai_tahap} if a.ai_tahap else {} )}
     if a.gaya:
