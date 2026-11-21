@@ -682,8 +682,9 @@ def ai_pilih_momen_utama(kal: list[Kalimat], durasi: float, jumlah: int,
     else:
         batas_durasi = f"Pilih {jumlah} momen terbaik untuk klip pendek, masing-masing sekitar {durasi} detik."
 
+    sinyal_txt = ringkas_sinyal_untuk_ai(sinyal, kal[-1].selesai if kal else 0)
+
     if mode == "gamer":
-        sinyal_txt = ringkas_sinyal_untuk_ai(sinyal, kal[-1].selesai if kal else 0)
         prompt = f"""Anda adalah editor video GAMING untuk TikTok/Reels/Shorts.
 
 Berikut transkrip lengkap video gameplay dengan timestamp (detik):
@@ -741,13 +742,22 @@ Output HANYA JSON valid, tanpa prose, tanpa markdown fence:
 Berikut adalah transkrip lengkap video dengan timestamp (detik):
 {teks_gabungan}
 
-{batas_durasi}
+SINYAL FISIK (dari audio & video, BUKAN teks — bukti momen menarik yang tidak selalu terlihat dari kata-kata):
+- lonjak: lonjakan volume suara vs baseline (teriakan/kaget)
+- reaksi: intensitas gerakan wajah di facecam (ekspresi kuat)
+- aksi: intensitas gerakan di layar (sedang rame)
+WAKTU DENGAN SINYAL TERKUAT:
+{sinyal_txt}
+
+Pilih {jumlah} momen terbaik untuk dibuat klip pendek, masing-masing sekitar {durasi} detik.
 
 Kriteria wajib:
 1. 2-DETIK TEST: 2 detik pertama harus membuat penonton baru (tanpa konteks) ingin terus nonton.
 2. STANDS ALONE: klip harus bisa dipahami tanpa konteks sebelumnya. Hindari awalan dengan "ini", "itu", "ya", "nah".
 3. Tidak tumpang tindih waktu satu sama lain.
-4. Bawa judul singkat dan alasan singkat (Bahasa Indonesia).{arahan_str}
+4. Prioritaskan momen yang memiliki sinyal fisik kuat (lonjakan suara, reaksi wajah, atau aksi layar), meski teksnya sepi.
+5. SKOR RENDAH untuk transkrip yang berisi narasi/meta tentang membuat video ("kita akan membuat video", "subscribe", "intro"), kecuali jika didukung sinyal fisik kuat.
+6. Bawa judul singkat dan alasan singkat (Bahasa Indonesia).{arahan_str}
 
 Output HANYA JSON valid, tanpa prose, tanpa markdown fence:
 [
