@@ -9,7 +9,9 @@ Kredit + lisensi di bagian paling bawah.
 
 ## 1. Install (satu kali)
 
-Cara paling singkat — copy-paste semua sekaligus di Termux:
+### Di Termux (Android)
+
+Copy-paste semua sekaligus:
 
 ```bash
 pkg install python git ffmpeg unzip wget -y && pip install uv && cd ~ && wget -q https://github.com/isanovski/studio-clipper/archive/refs/heads/main.zip && unzip -q main.zip && cd studio-clipper-main/klip && uv sync
@@ -17,7 +19,7 @@ pkg install python git ffmpeg unzip wget -y && pip install uv && cd ~ && wget -q
 
 Tunggu sampai selesai (bisa 2-5 menit). Tanpa git clone, tanpa password.
 
-### Kalau sudah unduh salah (folder kosong / tidak ada klip.py)
+**Kalau sudah unduh salah (folder kosong / tidak ada klip.py):**
 
 ```bash
 cd ~
@@ -26,12 +28,11 @@ wget -q https://github.com/isanovski/studio-clipper/archive/refs/heads/main.zip
 unzip -q main.zip
 cd studio-clipper-main/klip
 uv sync
-./mulai
 ```
 
 URL yang benar: `github.com/isanovski/studio-clipper` (bukan `isanovskisaputra-source`).
 
-Di Linux / VPS:
+### Di Linux / VPS
 
 ```bash
 sudo apt install python3 git ffmpeg unzip wget -y
@@ -49,6 +50,7 @@ uv sync
 ### A. Via `./mulai` (disarankan)
 
 ```bash
+cd studio-clipper-main/klip
 ./mulai
 ```
 
@@ -91,6 +93,23 @@ Mulai proses? (Enter=y, n=batal):
 Tekan **Enter** untuk mulai. Hasil ada di folder `hasil-klip/`.
 
 Semua pertanyaan bisa dikosongkan (pakai default yang sudah aman).
+
+### Cari path video di HP (setiap phone beda)
+
+Jika belum tahu path videonya, cek di Termux:
+
+```bash
+ls ~/storage/downloads/
+ls ~/sdcard/Download/
+ls ~/DCIM/Camera/
+```
+
+Contoh path yang umum:
+- `/sdcard/Download/video.mp4`
+- `/sdcard/DCIM/Camera/VID_20261121.mp4`
+- `/storage/emulated/0/Download/video.mp4`
+
+Masukkan path lengkapnya saat `./mulai` menanya "Video".
 
 ### B. Via CLI langsung (`klip.py`)
 
