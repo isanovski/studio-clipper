@@ -1,101 +1,25 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""mulai — Klip cepat (alur como web UI, mínimas perguntas)."""
-
 import os
 import sys
 from pathlib import Path
 
 KLIP_PY = Path(__file__).resolve().parent / "klip.py"
 
+sumber = input("Video (file atau link YouTube): ").strip()
+if not sumber:
+    print("Wajib diisi.")
+    sys.exit(1)
 
-def tanya(prompt, default=None):
-    if default:
-        return input(f"{prompt} [{default}]: ").strip() or default
-    while True:
-        v = input(f"{prompt}: ").strip()
-        if v:
-            return v
-        print("Wajib diisi.")
-
-
-def pilih(prompt, opsi, default=0):
-    print(f"\n{prompt}")
-    for i, o in enumerate(opsi, 1):
-        tandai = " <== default" if i - 1 == default else ""
-        print(f"  {i}. {o}{tandai}")
-    while True:
-        v = input(f"Pilih 1-{len(opsi)} [{default + 1}]: ").strip()
-        if not v:
-            return opsi[default]
-        try:
-            n = int(v)
-            if 1 <= n <= len(opsi):
-                return opsi[n - 1]
-        except ValueError:
-            pass
-        print("Pilihan tidak valid.")
-
-
-def main():
-    print("=== KLIP — Mulai Cepat ===\n")
-
-    sumber = tanya("Video (file atau link YouTube)")
-    if not Path(sumber).exists() and not sumber.startswith(("http://", "https://")):
-        print(f"\nPeringatan: '{sumber}' belum ditemukan di komputer ini.")
-        konf = input("Teruskan? (Enter=y, n=batal): ").strip().lower()
-        if konf in ("n", "no", "tidak"):
-            print("Dibatalkan.")
-            return 1
-
-    jumlah = tanya("Berapa klip", "3")
-    try:
-        int(jumlah)
-    except ValueError:
-        jumlah = "3"
-
-    durasi = tanya("Durasi per klip (detik)", "30")
-    try:
-        int(durasi)
-    except ValueError:
-        durasi = "30"
-
-    layout = pilih("Pilih layout", ["tunggal", "split", "gamer"], default=2)
-
-    ai = pilih("Pilih AI", ["lokal", "deepseek", "openrouter", "gemini"], default=0)
-
-    model = pilih("Pilih model Whisper", ["small", "medium"], default=0)
-
-    print("\n=== Ringkasan ===")
-    print(f"  Sumber     : {sumber}")
-    print(f"  Jumlah     : {jumlah} klip")
-    print(f"  Durasi     : {durasi} detik")
-    print(f"  Layout     : {layout}")
-    print(f"  AI         : {ai}")
-    print(f"  Model      : {model}")
-    konf = input("\nMulai proses? (Enter=y, n=batal): ").strip().lower()
-    if konf in ("n", "no", "tidak"):
-        print("Dibatalkan.")
-        return 1
-
-    cmd = [
-        sys.executable, str(KLIP_PY), sumber,
-        "--keluar", "hasil-klip",
-        "--jumlah", jumlah,
-        "--durasi", durasi,
-        "--layout", layout,
-        "--ai", ai,
-        "--model", model,
-        "--momen", "umum",
-        "--render",
-    ]
-    print("\nMenjalankan:\n  " + " ".join(cmd) + "\n")
-    os.execv(sys.executable, cmd)
-
-
-if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except KeyboardInterrupt:
-        print("\nDibatalkan.")
-        sys.exit(1)
+cmd = [
+    sys.executable, str(KLIP_PY), sumber,
+    "--keluar", "hasil-klip",
+    "--jumlah", "3",
+    "--durasi", "30",
+    "--layout", "gamer",
+    "--ai", "lokal",
+    "--model", "small",
+    "--momen", "umum",
+    "--render",
+]
+print("Menjalankan:", " ".join(cmd))
+os.execv(sys.executable, cmd)
