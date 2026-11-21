@@ -7,27 +7,47 @@ Kredit + lisensi di bagian paling bawah.
 
 ---
 
-## 1. Install (satu kali)
+## 1. Install (satu kali saja)
 
-Butuh Python 3 dan `uv`. Jika belum ada:
+Pilih salah satu cara termudah:
+
+### A. Via ZIP (termudah, tidak perlu git)
 
 ```bash
-# Clone repo
-git clone https://github.com/isanovskisaputra-source/studio-clipper.git
-cd studio-clipper/klip
-
 # Android / Termux:
-pkg install python git ffmpeg
-pip install uv
-uv sync
+pkg install python git ffmpeg unzip wget
+wget https://github.com/isanovskisaputra-source/studio-clipper/archive/refs/heads/main.zip
+unzip main.zip
+cd studio-clipper-main/klip
 
 # Linux / VPS:
-sudo apt install python3 git ffmpeg
+sudo apt install python3 git ffmpeg unzip wget
+wget https://github.com/isanovskisaputra-source/studio-clipper/archive/refs/heads/main.zip
+unzip main.zip
+cd studio-clipper-main/klip
+```
+
+Lalu instal `uv`:
+```bash
 pip install uv
 uv sync
 ```
 
-Cukup jalankan sekali saja. Setelah itu, setiap kali mau kerja cukup ketik `./mulai`.
+### B. Via git clone (butuh Personal Access Token)
+
+GitHub tidak menerima password login untuk `git clone` sejak 2021. Jika meminta password, gunakan **Personal Access Token (PAT)**, bukan password akun GitHub kamu.
+
+Cara buat PAT:
+1. Buka github.com → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens**
+2. Buat token baru, beri akses `repo` (read)
+3. Salin token, tempel saat git meminta password
+
+```bash
+git clone https://github.com/isanovskisaputra-source/studio-clipper.git
+cd studio-clipper/klip
+pip install uv
+uv sync
+```
 
 ---
 
