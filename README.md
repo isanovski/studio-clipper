@@ -17,6 +17,20 @@ pkg install python git ffmpeg unzip wget -y && pip install uv && cd ~ && wget -q
 
 Tunggu sampai selesai (bisa 2-5 menit). Tanpa git clone, tanpa password.
 
+### Kalau sudah unduh salah (folder kosong / tidak ada klip.py)
+
+```bash
+cd ~
+rm -rf studio-clipper-main main.zip studio.zip
+wget -q https://github.com/isanovski/studio-clipper/archive/refs/heads/main.zip
+unzip -q main.zip
+cd studio-clipper-main/klip
+uv sync
+./mulai
+```
+
+URL yang benar: `github.com/isanovski/studio-clipper` (bukan `isanovskisaputra-source`).
+
 Di Linux / VPS:
 
 ```bash
