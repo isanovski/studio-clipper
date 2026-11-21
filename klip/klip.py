@@ -1503,8 +1503,15 @@ Return only:
     hasil = ai_json(penyedia, prompt, cache)
     if not hasil:
         return []
+    # AI kadang balas list langsung, kadang objek {"metadata": [...]}
+    if isinstance(hasil, dict):
+        metadata_list = hasil.get("metadata", []) or []
+    elif isinstance(hasil, list):
+        metadata_list = hasil
+    else:
+        return []
     out = []
-    for m in hasil.get("metadata", []) or []:
+    for m in metadata_list:
         try:
             no = int(m["no"])
         except (KeyError, TypeError, ValueError):
@@ -1529,7 +1536,11 @@ RINGKASAN TRANSKRIP:
 SINYAL: reaksi_wajah={float((sinyal.get('reaksi') or [0])[0]):.2f} aksi_game={float((sinyal.get('aksi') or [0])[0]):.2f}""", cache)
     if not hasil:
         return ""
-    return str(hasil.get("layout", ""))[:20]
+    if isinstance(hasil, dict):
+        return str(hasil.get("layout", ""))[:20]
+    elif isinstance(hasil, list) and hasil:
+        return str(hasil[0].get("layout", ""))[:20] if isinstance(hasil[0], dict) else ""
+    return ""
 
 
 def qc_klip(path: Path, target_durasi: float, layout: str = "") -> dict:
