@@ -22,7 +22,7 @@ termux-change-repo
 Pilih mirror (pilih nomor 1 atau yang paling cepat), lalu:
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+pkg install uv 2>/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 cd ~
 wget -q https://github.com/isanovski/studio-clipper/archive/refs/heads/main.zip
@@ -33,9 +33,26 @@ uv sync
 
 Tunggu sampai selesai (bisa 2–5 menit). Tanpa git clone, tanpa password, tanpa `pip install uv`.
 
-> **Kenapa tidak pakai `pip install uv`?** Karena `uv` ditulis dalam Rust, dan `pip` mencoba kompilasi di Termux yang butuh Rust compiler + mirror yang benar. Pakai installer resmi di atas langsung tidak butuh kompilasi.
+> **Kenapa tidak pakai `pip install uv`?** Karena `uv` ditulis dalam Rust, dan `pip` mencoba kompilasi di Termux yang butuh Rust compiler + mirror yang benar. Pakai `pkg install uv` atau installer resmi langsung tidak butuh kompilasi.
 
-**Kalau `termux-change-repo` belum ada atau error:** abaikan, langsung lanjut ke `curl ... | sh`.
+**Kalau `uv sync` error "no download for your platform aarch64-android":**
+
+Beberapa paket Python belum punya build untuk aarch64-android. Coba install paket yang dibutuhkan satu per satu:
+
+```bash
+pip install numpy yt-dlp faster-whisper opencv-python-headless google-genai
+```
+
+Kalau masih error pada paket tertentu, abaikan paket itu (klip.py akan tetap jalan untuk fitur dasar).
+
+Kalau `uv` belum terpasang sama sekali:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+**Kalau `termux-change-repo` belum ada atau error:** abaikan, langsung lanjut ke `pkg install uv` atau `curl ... | sh`.
 
 **Kalau sudah unduh salah (folder kosong / tidak ada klip.py):**
 
